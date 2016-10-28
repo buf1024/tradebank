@@ -3,13 +3,21 @@ package ioms
 import ()
 
 const (
-	PROTO_TCP_SHORT = itoa
+	PROTO_TCP_SHORT = iota
 	PROTO_TCP_LONG
 	PROTO_HTTP
 	PROTO_HTTPS
 )
 
+//{"prefix":"filename", "switchsize":1024, "fieldir":"./", "filelevel":5, "termlevel":5}
+
 type Config struct {
+	LogPrefix     string
+	LogDir        string
+	LogSwitchSize string
+	LogFileLevel  string
+	LogTermLevel  string
+
 	ListenAddress string
 	ListenPort    int64
 
@@ -20,6 +28,9 @@ type Config struct {
 	TimeOutValue int64
 }
 
-func LoadConfig(file string) (*Config, error) {
+func NewConfig(file string) (*Config, error) {
+	var c Config
+	c.ListenAddress = "123"
 
+	return &c, nil
 }

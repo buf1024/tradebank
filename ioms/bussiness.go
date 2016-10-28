@@ -1,6 +1,8 @@
 package ioms
 
-import ()
+import (
+	"tradebank/logging"
+)
 
 type Handler func(int, interface{}) int
 
@@ -15,10 +17,12 @@ type IomServer struct {
 	ExchRecvChan chan *NetContext
 
 	ConnectStatus bool
+
+	Log *Log
 }
 
 func (m *IomServer) ListenBank() error {
-	m.Config
+	return nil
 }
 
 func (m *IomServer) ExchRecv() {
@@ -28,7 +32,10 @@ func (m *IomServer) ExchSend() {
 
 }
 
-func (m *IomServer) ExchRecon() {
+func (m *IomServer) StartRecon() {
+
+}
+func (m *IomServer) ConnectExch() {
 
 }
 
@@ -54,4 +61,8 @@ func (m *IomServer) SetupSignal() {
 
 func (m *IomServer) ControlTrace() {
 
+}
+
+func NewIomServer() *IomServer {
+	return &IomServer{}
 }
