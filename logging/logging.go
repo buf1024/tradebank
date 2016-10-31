@@ -49,10 +49,10 @@ type Log struct {
 	sigMsg chan string
 }
 
-var levelString map[string]int64
-var levelHeadString map[int64]string
-var loggerRegistered map[string]Loger
-var loggerTraced map[string]Loger
+var levelString = make(map[string]int64)
+var levelHeadString = make(map[int64]string)
+var loggerRegistered = make(map[string]Loger)
+var loggerTraced = make(map[string]Loger)
 
 func (l *Log) Critical(format string, a ...interface{}) {
 	now := time.Now()
@@ -241,7 +241,7 @@ func NewLogging() (*Log, error) {
 	return log, nil
 }
 
-func Logging(name string) Loger {
+func AddLog(name string) Loger {
 	if lg, ok := loggerRegistered[name]; ok {
 		loggerTraced[name] = lg
 		return lg
@@ -251,7 +251,7 @@ func Logging(name string) Loger {
 
 func Register(log Loger) error {
 	name := log.Name()
-	if _, ok := loggerRegistered[name]; !ok {
+	if _, ok := loggerRegistered[name]; ok {
 		return fmt.Errorf("logger %s exists", name)
 	}
 	loggerRegistered[name] = log

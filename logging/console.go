@@ -5,7 +5,7 @@ import (
 	"github.com/fatih/color"
 )
 
-var colorLevel map[int64]color.Attribute
+var colorLevel = make(map[int64]color.Attribute)
 
 type consoleLogger struct {
 	level int64
