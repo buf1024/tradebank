@@ -10,11 +10,11 @@ import (
 )
 
 type fileLogger struct {
-	prefix     string `json:"prefix"`
-	fileDir    string `json:"filedir"`
-	level      int64  `json:"level"`
-	switchSize int64  `json:"switchsize"`
-	switchTime int64  `json:"switchtime"`
+	Prefix     string `json:"prefix"`
+	FileDir    string `json:"filedir"`
+	Level      int64  `json:"level"`
+	SwitchSize int64  `json:"switchsize"`
+	SwitchTime int64  `json:"switchtime"`
 
 	status bool
 
@@ -29,11 +29,11 @@ func (f *fileLogger) logSwitch() error {
 	n := time.Now()
 	if f.file == nil {
 		f.fileName = fmt.Sprintf("%s_%d_%04d%02d%02d_%d.log.tmp",
-			f.prefix, os.Getpid(), n.Year(), n.Month(), n.Day(), f.fileIndex)
+			f.Prefix, os.Getpid(), n.Year(), n.Month(), n.Day(), f.fileIndex)
 		f.fileDate = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local).Unix()
 
 		var err error
-		f.file, err = os.OpenFile(f.fileName, os.O_APPEND|os.O_CREATE, 0644)
+		f.file, err = os.OpenFile(f.fileName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			return err
 		}
@@ -42,18 +42,18 @@ func (f *fileLogger) logSwitch() error {
 
 		return nil
 	}
-	switchFlag := true
+	switchFlag := false
 	curDate := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local).Unix()
 
-	if f.switchTime > 0 {
-		swt := 86400 + f.switchTime
+	if f.SwitchTime > 0 {
+		swt := 86400 + f.SwitchTime
 		cur := int64(n.Hour()*3600+n.Minute()*60+n.Second()) + curDate
 		if cur-f.fileDate >= swt {
 			switchFlag = true
 		}
 	}
-	if f.switchSize > 0 {
-		if f.fileSize >= f.switchSize {
+	if f.SwitchSize > 0 {
+		if f.fileSize >= f.SwitchSize {
 			switchFlag = true
 		}
 	}
@@ -65,6 +65,7 @@ func (f *fileLogger) logSwitch() error {
 			f.fileIndex++
 			return f.logSwitch()
 		}
+		f.fileIndex = 0
 		return f.logSwitch()
 	}
 	return nil
@@ -74,22 +75,22 @@ func (f *fileLogger) Name() string {
 	return "file"
 }
 
-//`{"prefix"="hello", "filedir"="./", "level":"trace"}, "switchsize"=1024, "switchtime"="86400"}`
+//`{"prefix":"hello", "filedir":"./", "level":0, "switchsize":1024, "switchtime":86400}`)
 func (f *fileLogger) Open(conf string) error {
-	err := json.Unmarshal([]byte(conf), *f)
+	err := json.Unmarshal([]byte(conf), f)
 	if err != nil {
 		return err
 	}
-	f.fileDir = filepath.Dir(f.fileDir)
-	if !strings.HasSuffix(f.fileDir, string(filepath.Separator)) {
-		f.fileDir += string(filepath.Separator)
+	f.FileDir = filepath.Dir(f.FileDir)
+	if !strings.HasSuffix(f.FileDir, string(filepath.Separator)) {
+		f.FileDir += string(filepath.Separator)
 	}
-	return nil
+	return f.logSwitch()
 }
 func (f *fileLogger) Write(msg *Message) (int, error) {
 	n, err := 0, error(nil)
 	if f.file != nil {
-		if msg.msgType >= f.level {
+		if msg.msgType >= f.Level {
 			n, err = f.file.Write([]byte(msg.message))
 			if err != nil {
 				return n, err
@@ -105,11 +106,18 @@ func (f *fileLogger) Write(msg *Message) (int, error) {
 	return n, err
 }
 func (f *fileLogger) Close() error {
-	err := f.file.Close()
-	if err != nil {
-		return err
+	if f.file != nil {
+		err := f.file.Close()
+		if err != nil {
+			return err
+		}
+		index := strings.Index(f.fileName, ".tmp")
+		if index > 0 {
+			newPath := f.fileName[:index]
+			os.Rename(f.fileName, newPath)
+		}
+		f.file = nil
 	}
-	f.file = nil
 	return nil
 }
 func (f *fileLogger) Sync() error {

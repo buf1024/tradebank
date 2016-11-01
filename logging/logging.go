@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	defSyncSize = 1024
+	defAsyncSize = 1024
 )
 
 type Loger interface {
@@ -55,8 +55,12 @@ var loggerRegistered = make(map[string]Loger)
 var loggerTraced = make(map[string]Loger)
 
 func (l *Log) Critical(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelCritical])
 
@@ -67,8 +71,12 @@ func (l *Log) Critical(format string, a ...interface{}) {
 }
 
 func (l *Log) Error(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelError])
 
@@ -79,8 +87,12 @@ func (l *Log) Error(format string, a ...interface{}) {
 }
 
 func (l *Log) Warning(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelWarning])
 
@@ -90,8 +102,12 @@ func (l *Log) Warning(format string, a ...interface{}) {
 	l.logMessage(chanMsg, logMsg, format, a...)
 }
 func (l *Log) Notice(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelNotice])
 
@@ -102,8 +118,12 @@ func (l *Log) Notice(format string, a ...interface{}) {
 }
 
 func (l *Log) Info(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelInformational])
 
@@ -114,8 +134,12 @@ func (l *Log) Info(format string, a ...interface{}) {
 }
 
 func (l *Log) Debug(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelDebug])
 
@@ -125,8 +149,12 @@ func (l *Log) Debug(format string, a ...interface{}) {
 	l.logMessage(chanMsg, logMsg, format, a...)
 }
 func (l *Log) Trace(format string, a ...interface{}) {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
 	now := time.Now()
-	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d][%s] ",
+	logMsg := fmt.Sprintf("[%02d%02d%02d.%06d]%s ",
 		now.Hour(), now.Minute(), now.Second(), now.Nanosecond(),
 		levelHeadString[LevelTrace])
 
@@ -155,24 +183,36 @@ func (l *Log) logMessage(chanMsg *Message, logMsg string, format string, a ...in
 	l.logMsg <- chanMsg
 }
 
-func (l *Log) StartSync() {
+func (l *Log) StartSync() error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
+	if len(loggerTraced) == 0 {
+		return fmt.Errorf("log size zero")
+	}
 	l.status = statusRunning
 	l.sync = true
+
+	return nil
 }
-func (l *Log) StartAsync() {
+func (l *Log) StartAsync() error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
+	if len(loggerTraced) == 0 {
+		return fmt.Errorf("log size zero")
+	}
 	l.status = statusRunning
 	l.sync = false
 
-	l.logMsg = make(chan *Message, defSyncSize)
+	l.logMsg = make(chan *Message, defAsyncSize)
 	l.sigMsg = make(chan string)
+
+	go l.waitMsg()
+
+	return nil
 }
 
-func (l *Log) Start() {
-	l.StartAsync()
+func (l *Log) Start() error {
+	return l.StartAsync()
 }
 
 func (l *Log) Stop() {
@@ -184,7 +224,6 @@ func (l *Log) Stop() {
 			l.sigMsg <- "closing"
 
 			// wait for closed
-
 			sig := <-l.sigMsg
 			if sig == "closed" {
 				l.status = statusClosed
@@ -193,7 +232,19 @@ func (l *Log) Stop() {
 				close(l.sigMsg)
 			}
 		} else {
+			// exit logger
+			for _, log := range loggerTraced {
+				err := log.Close()
+				if err != nil {
+					fmt.Printf("log close failed.\n")
+				}
+			}
 			l.status = statusClosed
+		}
+	}
+	if l.status == statusClosed {
+		for k, _ := range loggerTraced {
+			delete(loggerTraced, k)
 		}
 	}
 }
@@ -206,8 +257,8 @@ END:
 			for _, log := range loggerTraced {
 				_, err := log.Write(msg)
 				if err != nil {
-					fmt.Printf("log write message failed, logger = %s, type = %ld, message = %s\n",
-						log.Name(), msg.msgType, msg.message)
+					fmt.Printf("log write message failed, logger = %s, type = %d, message = %s, err = %s\n",
+						log.Name(), msg.msgType, msg.message, err.Error())
 				}
 			}
 			if l.status == statusClosing {
@@ -241,12 +292,24 @@ func NewLogging() (*Log, error) {
 	return log, nil
 }
 
-func AddLog(name string) Loger {
-	if lg, ok := loggerRegistered[name]; ok {
-		loggerTraced[name] = lg
-		return lg
+func LogLevel(levelStr string) int64 {
+	if level, ok := levelString[levelStr]; ok {
+		return level
 	}
-	return nil
+	return LevelAll
+}
+
+func SetupLog(name string, conf string) (Loger, error) {
+	if log, ok := loggerRegistered[name]; ok {
+		err := log.Open(conf)
+		if err != nil {
+			return nil, err
+		}
+		loggerTraced[name] = log
+
+		return log, nil
+	}
+	return nil, fmt.Errorf("loger %s not found", name)
 }
 
 func Register(log Loger) error {

@@ -8,19 +8,19 @@ import (
 var colorLevel = make(map[int64]color.Attribute)
 
 type consoleLogger struct {
-	level int64
+	Level int64 `json:"level"`
 }
 
 func (c *consoleLogger) Name() string {
 	return "console"
 }
 func (c *consoleLogger) Open(conf string) error {
-	err := json.Unmarshal([]byte(conf), *c)
+	err := json.Unmarshal([]byte(conf), &c)
 	return err
 }
 func (c *consoleLogger) Write(msg *Message) (int, error) {
 	n, err := 0, error(nil)
-	if msg.msgType >= c.level {
+	if msg.msgType >= c.Level {
 		n, err = color.New(colorLevel[msg.msgType]).Print(msg.message)
 	}
 	return n, err
@@ -34,13 +34,13 @@ func (c *consoleLogger) Sync() error {
 
 func init() {
 
-	colorLevel[LevelCritical] = color.FgHiRed
-	colorLevel[LevelError] = color.FgRed
-	colorLevel[LevelWarning] = color.FgHiCyan
-	colorLevel[LevelNotice] = color.FgHiBlue
-	colorLevel[LevelInformational] = color.FgBlue
-	colorLevel[LevelDebug] = color.FgHiGreen
-	colorLevel[LevelTrace] = color.FgGreen
+	colorLevel[LevelCritical] = color.FgRed
+	colorLevel[LevelError] = color.FgHiRed
+	colorLevel[LevelWarning] = color.FgMagenta
+	colorLevel[LevelNotice] = color.FgBlue
+	colorLevel[LevelInformational] = color.FgHiBlue
+	colorLevel[LevelDebug] = color.FgGreen
+	colorLevel[LevelTrace] = color.FgHiGreen
 	colorLevel[LevelAll] = color.FgWhite
 
 	c := &consoleLogger{}

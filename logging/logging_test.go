@@ -9,26 +9,23 @@ func TestLogging(t *testing.T) {
 	log, err := NewLogging()
 	if err != nil {
 		t.Errorf("NewLogging failed. err = %s\n", err.Error())
+		t.FailNow()
 	}
-	f := AddLog("file")
-	if f == nil {
-		t.Errorf("get file logger failed.")
-	}
-	c := AddLog("console")
-	if c == nil {
-		t.Errorf("get console logger failed.")
-	}
-	err = f.Open(`{"prefix"="hello", "filedir"="./", "level":"trace"}, "switchsize"=1024, "switchtime"="86400"}`)
+	_, err = SetupLog("file",
+		`{"prefix":"hello", "filedir":"./", "level":0, "switchsize":102400, "switchtime":0}`)
 	if err != nil {
-		t.Errorf("open file logger failed. err = %s\n", err.Error())
+		t.Errorf("setup file logger failed. err = %s\n", err.Error())
+		t.FailNow()
 	}
-	err = c.Open(`{"level":"debug"}`)
+	_, err = SetupLog("console", `{"level":0}`)
 	if err != nil {
-		t.Errorf("open console logger failed. err = %s\n", err.Error())
+		t.Errorf("setup file logger failed. err = %s\n", err.Error())
+		t.FailNow()
 	}
 
-	running := 86400
+	running := 86400 * 2
 
+	log.Start()
 	for {
 		log.Trace("trace\n")
 		log.Debug("debug\n")
@@ -38,12 +35,11 @@ func TestLogging(t *testing.T) {
 		log.Error("error\n")
 		log.Critical("critical\n")
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(60 * time.Second)
 		running--
 		if running <= 0 {
 			break
 		}
 	}
-	f.Close()
-	c.Close()
+	log.Stop()
 }
