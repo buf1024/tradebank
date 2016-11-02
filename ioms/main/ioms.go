@@ -28,16 +28,23 @@ func main() {
 
 	err := error(nil)
 	// read configure
-	m.Config, err = ioms.NewConfig(*file)
+	m.Config, err = ioms.LoadConfig(*file)
 	if err != nil {
 		fmt.Printf("LoadConfig failed, file = %s, ERR=%s\n", file, err.Error())
 		os.Exit(-1)
 	}
-
-	// setup logging
-	err = m.SetupLog()
+	// init logging
+	err = m.InitLog()
 	if err != nil {
-		fmt.Printf("SetupLog file failed. ERR=%s\n", err.Error())
+		fmt.Printf("init log failed. ERR=%s\n", err.Error())
+		os.Exit(-1)
+	}
+
+	// load bank configure
+	err = m.LoadBankConf()
+	if err != nil {
+		m.Log.Fatal("load bank configure failed. ERR=%s\n", err.Error())
+		m.Stop()
 		os.Exit(-1)
 	}
 
@@ -45,7 +52,8 @@ func main() {
 	m.Log.Info("connecting to exch\n")
 	err = m.ConnectExch()
 	if err != nil {
-		m.Log.Info("connect to exch failed. ERR=%s\n", err.Error())
+		m.Log.Fatal("connect to exch failed. ERR=%s\n", err.Error())
+		m.Stop()
 		os.Exit(-1)
 	}
 	m.Log.Info("start exch reconnect go routine\n")

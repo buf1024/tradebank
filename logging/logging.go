@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -292,11 +293,12 @@ func NewLogging() (*Log, error) {
 	return log, nil
 }
 
-func LogLevel(levelStr string) int64 {
-	if level, ok := levelString[levelStr]; ok {
-		return level
+func LogLevel(levelStr string) (int64, error) {
+	str := strings.ToLower(levelStr)
+	if level, ok := levelString[str]; ok {
+		return level, nil
 	}
-	return LevelAll
+	return LevelAll, fmt.Errorf("level %s not found", levelStr)
 }
 
 func SetupLog(name string, conf string) (Loger, error) {
