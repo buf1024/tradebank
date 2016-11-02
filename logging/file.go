@@ -45,9 +45,9 @@ func (f *fileLogger) logSwitch() error {
 	switchFlag := false
 	curDate := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local).Unix()
 
-	if f.SwitchTime > 0 {
+	if f.SwitchTime >= 0 {
 		swt := 86400 + f.SwitchTime
-		cur := int64(n.Hour()*3600+n.Minute()*60+n.Second()) + curDate
+		cur := n.Unix()
 		if cur-f.fileDate >= swt {
 			switchFlag = true
 		}
@@ -81,6 +81,17 @@ func (f *fileLogger) Open(conf string) error {
 	if err != nil {
 		return err
 	}
+
+	if f.Prefix == "" {
+		return fmt.Errorf("prefix is empty")
+	}
+	if f.FileDir == "" {
+		return fmt.Errorf("file dir is empty")
+	}
+	if f.Level < 0 || f.Level > LevelCritical {
+		return fmt.Errorf("level must between(%d ~ %d)", LevelAll, LevelCritical)
+	}
+
 	f.FileDir = filepath.Dir(f.FileDir)
 	if !strings.HasSuffix(f.FileDir, string(filepath.Separator)) {
 		f.FileDir += string(filepath.Separator)

@@ -12,7 +12,7 @@ func TestLogging(t *testing.T) {
 		t.FailNow()
 	}
 	_, err = SetupLog("file",
-		`{"prefix":"hello", "filedir":"./", "level":0, "switchsize":102400, "switchtime":0}`)
+		`{"prefix":"hello", "filedir":"./", "level":0, "switchsize":0, "switchtime":0}`)
 	if err != nil {
 		t.Errorf("setup file logger failed. err = %s\n", err.Error())
 		t.FailNow()

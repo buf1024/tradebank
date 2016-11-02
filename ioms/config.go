@@ -1,6 +1,8 @@
 package ioms
 
-import ()
+import (
+//ini "github.com/vaughan0/go-ini"
+)
 
 const (
 	PROTO_TCP_SHORT = iota
@@ -9,27 +11,26 @@ const (
 	PROTO_HTTPS
 )
 
-//{"prefix":"filename", "switchsize":1024, "fieldir":"./", "filelevel":5, "termlevel":5}
-
 type Config struct {
 	LogPrefix     string
 	LogDir        string
-	LogSwitchSize string
-	LogFileLevel  string
-	LogTermLevel  string
+	LogSwitchTime int64
+	LogFileLevel  int64
+	LogTermLevel  int64
 
 	ListenAddress string
 	ListenPort    int64
 
-	UniqioAddress string
-	UniqioPort    int64
+	ExchAddress string
+	ExchPort    int64
 
 	TimerValue   int64
 	TimeOutValue int64
 }
 
 func NewConfig(file string) (*Config, error) {
-	var c Config
+	c := &Config{}
+
 	c.ListenAddress = "123"
 
 	return &c, nil

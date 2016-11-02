@@ -1,17 +1,17 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 
 	"tradebank/ioms"
+	"tradebank/util"
 )
 
 func main() {
 	file := flag.String("c", "ioms.conf", "configuration file")
-	nodaemon := flag.Bool("e", false, "not run in daemon proccess")
+	trace := flag.Int64("e", 0, "print error message")
 	help := flag.Bool("h", false, "show help message")
 
 	flag.Parse()
@@ -19,43 +19,33 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-	if *nodaemon {
-		// todo
-		fmt.Print("force daemo\n")
-
-	}
-
-	// read configure
-	conf, err := ioms.NewConfig(*file)
-	if err != nil {
-		fmt.Printf("LoadConfig failed, file = %s, errors = %s\n", file, err.Error())
-		os.Exit(-1)
+	if *trace > 0 {
+		fmt.Printf("%s\n", util.NewError(*trace))
+		os.Exit(0)
 	}
 
 	m := ioms.NewIomServer()
-	m.Config = conf
 
-	// setup logger
-	//{"prefix":"filename", "switchsize":1024, "fieldir":"./", "filelevel":5, "termlevel":5}
-	logConf := struct {
-		prefix     string
-		switchsize string
-		filedir    string
-		filelevel  string
-		termlevel  string
-	}{m.LogPrefix, m.LogDir, m.LogSwitchSize, m.LogFileLevel, m.LogTermLevel}
-	var js, err = json.Marshal(logConf)
+	err := error(nil)
+	// read configure
+	m.Config, err = ioms.NewConfig(*file)
 	if err != nil {
-		fmt.Printf("Json marshal failed. errors = %s\n", err.Error())
+		fmt.Printf("LoadConfig failed, file = %s, ERR=%s\n", file, err.Error())
 		os.Exit(-1)
 	}
-	m.Log, err = logging.NewLogging(js)
 
-	m.Log.Info("connecting to exch\n")
+	// setup logging
+	err = m.SetupLog()
+	if err != nil {
+		fmt.Printf("SetupLog file failed. ERR=%s\n", err.Error())
+		os.Exit(-1)
+	}
+
 	// connect to exch
+	m.Log.Info("connecting to exch\n")
 	err = m.ConnectExch()
 	if err != nil {
-		m.Log.Info("connect to exch failed. errors = %s\n", err.Error())
+		m.Log.Info("connect to exch failed. ERR=%s\n", err.Error())
 		os.Exit(-1)
 	}
 	m.Log.Info("start exch reconnect go routine\n")
@@ -73,7 +63,9 @@ func main() {
 	// control and trace
 	go m.ControlTrace()
 
-	<-m.ExitChan
+	// handle signal
+	go m.HandleSignal()
+	//<-m.ExitChan
 
 }
 

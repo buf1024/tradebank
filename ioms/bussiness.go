@@ -1,6 +1,11 @@
 package ioms
 
 import (
+	"fmt"
+	"os"
+	"os/sinal"
+	"syscall"
+
 	"tradebank/logging"
 )
 
@@ -18,7 +23,7 @@ type IomServer struct {
 
 	ConnectStatus bool
 
-	Log *Log
+	Log *logging.Log
 }
 
 func (m *IomServer) ListenBank() error {
@@ -35,8 +40,9 @@ func (m *IomServer) ExchSend() {
 func (m *IomServer) StartRecon() {
 
 }
-func (m *IomServer) ConnectExch() {
+func (m *IomServer) ConnectExch() error {
 
+	return nil
 }
 
 func (m *IomServer) ExchHeartbeat() {
@@ -55,11 +61,58 @@ func (m *IomServer) IomTimer() {
 
 }
 
-func (m *IomServer) SetupSignal() {
+func (m *IomServer) HandleSignal() {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGUSR2, syscall.SIGUSR1)
+END:
+	for {
+		select {
+		case sig := <-ch:
+			switch sig {
+			case syscall.SIGHUP:
+				m.Log.Info("catch SIGHUP, stop the server.")
+				m.StopIomServer()
+				break END
+			case syscall.SIGTERM:
+				m.Log.Info("catch SIGTERM, stop the server.")
+				m.StopIomServer()
+				break END
+			case syscall.SIGUSR1:
+			case syscall.SIGUSR2:
+
+			}
+		}
+
+	}
 
 }
+func (m *IomServer) StopIomServer() {
 
-func (m *IomServer) ControlTrace() {
+}
+func (m *IomServer) SetupLog() (err error) {
+	m.Log, err = logging.NewLogging()
+	if err != nil {
+		return err
+	}
+	_, err = logging.SetupLog("file",
+		fmt.Sprintf(`{"prefix":"%s", "filedir":"%s", "level":%d, "switchsize":%d, "switchtime":%d}`,
+			m.LogPrefix, m.LogDir, m.LogFileLevel, -1, m.LogSwitchTime))
+	if err != nil {
+		return err
+	}
+	_, err = logging.SetupLog("console",
+		fmt.Sprintf(`{"level":%d}`, m.LogTermLevel))
+	if err != nil {
+		return err
+	}
+	m.Log.Start()
+
+	m.Log.Info("log started.\n")
+
+	return nil
+}
+
+func (m *IomServer) Control() {
 
 }
 
