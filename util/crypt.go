@@ -2,19 +2,35 @@ package util
 
 import ()
 
-type KeyContext struct {
+type Crypt struct {
 }
 
-/*
-func InitCrypt(key* KeyContext) error {
-    return nil
+func NewCrypt() *Crypt {
+	c := &Crypt{}
+
+	return c
 }
 
-func Encrypt(key* KeyContext, []byte buf)([]byte, error) {
-    return buf, nil
+func (c *Crypt) PacketEncrypt(buf []byte) ([]byte, error) {
+	return buf, nil
 }
 
-func Decrypt()(key* KeyContext, []byte buf)([]byte, error) {
-    return buf, nil
+func (c *Crypt) PacketDecrypt(buf []byte) ([]byte, error) {
+	return buf, nil
 }
-*/
+
+func (c *Crypt) PasswordEncrypt(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+func (c *Crypt) PasswordDecrypt(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+func (c *Crypt) DBStringEncrypt(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+func (c *Crypt) DBStringDecrypt(buf []byte) ([]byte, error) {
+	return buf, nil
+}

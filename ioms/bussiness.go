@@ -8,8 +8,10 @@ import (
 	"syscall"
 	"time"
 
+	"tradebank/bankmsg"
 	"tradebank/ioms/bank"
 	"tradebank/logging"
+	"tradebank/proto"
 	"tradebank/util"
 )
 
@@ -80,6 +82,26 @@ func (m *IomServer) ExchTimer() {
 		if !m.exchCtx.regStatus {
 			// reg packet
 			m.Log.Info("reg to exch\n")
+			msg, err := proto.Message(proto.CMD_SVR_REG_REQ)
+			if err != nil {
+				m.Log.Fatal("create message failed, ERR=%s\n", err.Error())
+				time.Sleep(m.TimeOutValue * time.Second)
+				continue
+			}
+
+			req := (*bankmsg.SvrRegReq)(msg)
+			*req.SID = "123"
+
+			reqMsg := &exchMsg{}
+			reqMsg.conn = m.exchCtx.conn
+			reqMsg.command = proto.CMD_SVR_REG_REQ
+			reqMsg.message, err = proto.Serialize(req)
+			if err != nil {
+				m.Log.Fatal("serialize message failed, ERR=%s\n", err.Error())
+				time.Sleep(m.TimeOutValue * time.Second)
+				continue
+			}
+
 			time.Sleep(m.TimeOutValue * time.Second)
 			continue
 		}

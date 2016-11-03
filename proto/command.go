@@ -191,9 +191,30 @@ var message map[int64]proto.Message
 
 func Message(command int64) (proto.Message, error) {
 	if m, ok := message[command]; ok {
+		proto.Clone(m)
 		return m, nil
 	}
 	return nil, fmt.Errorf("mommand %d not found", command)
+}
+
+func Parse(command int64, buf []byte) (proto.Message, error) {
+	msg, err := Message(command)
+	if err != nil {
+		return nil, err
+	}
+	err = proto.Unmarshal(buf, msg)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func Serialize(msg proto.Message) ([]byte, error) {
+	return proto.Marshal(msg)
+}
+
+func Debug(command int64, msg proto.Message) string {
+	return fmt.Sprintf("command:0x%x %s", command, proto.CompactTextString(msg))
 }
 
 func init() {
