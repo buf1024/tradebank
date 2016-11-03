@@ -91,6 +91,8 @@ func (m *IomServer) ExchTimer() {
 
 			req := (*bankmsg.SvrRegReq)(msg)
 			*req.SID = "123"
+			*req.SvrType = bankid
+			*req.SvrId = bankid
 
 			reqMsg := &exchMsg{}
 			reqMsg.conn = m.exchCtx.conn
