@@ -41,7 +41,7 @@ type Message struct {
 	msgType int64
 	message string
 }
-// Log aa
+
 type Log struct {
 	status int64
 	sync   bool
