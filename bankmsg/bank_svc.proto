@@ -1,0 +1,1585 @@
+package bankmsg;
+
+// TODO 命令码要完善，协议内容要完善
+
+// 请求协议定义以Req结尾
+// 回应协议定义以Rsp结尾
+
+// 交易系统内部的以E2E开头
+// 交易系统到出入金服务的以E2B开头
+// 出入金服务到交易系统的以B2E开头
+
+//////////////////////////////////////////////////////////////////////
+// 心跳类
+//////////////////////////////////////////////////////////////////////
+// 心跳请求 0x00010001
+message HeartBeatReq{
+  required string SID = 1;
+}
+// 心跳回应 0x00010002
+message HeartBeatRsp{
+  required string SID = 1;
+}
+
+// 交易系统内部 E2E
+//////////////////////////////////////////////////////////////////////
+// 银行服务与资金管理模块交互
+//////////////////////////////////////////////////////////////////////
+// 资金变更请求 0x07010001
+message  E2EChangeAcctMoneyReq{
+  required string SID = 1;
+  required int32 UserId = 2;
+  required int32 UserType = 3; //0 交易客户   1 会员和交易所，经纪人 2013-10-17新增
+  required int32 LoginId = 4;
+  required int32 AccountId = 5;
+  required int32 OperateType = 6;
+  required int32 Currency = 7;
+  required double Amount = 8;
+  required int64 fid = 9;
+  required int64 OperDate = 10;
+  required double Commission = 11;//出入金手续费
+  optional int32 operateflag = 12[default = 0];//支付方式 0 默认;1 微信支付
+  required double OperateCommission = 13; //交易所结转手续费金额
+  required int32    CommissionInFlag = 14; //入金手续费扣除标志,1是客户，2是会员，3是交易所
+}
+
+// 资金变更回应 0x07010002
+message E2EChangeAcctMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 UserId = 4;
+  required int64 OperDate = 5;
+}
+
+// 单边账调整请求 0x07010005 
+message  E2EChangeOneSideAccountReq{
+  required string SID = 1;
+  required int32 UserId = 2;
+  required int32 UserType = 3; //0 交易客户   1 会员和交易所，经纪人 2013-10-17新增
+  required int32 LoginId = 4;
+  required int32 AccountId = 5;  
+  required int64 OperDate = 6;
+  
+  message OperateInfo
+  {
+      required int32 OperateType = 1;
+      required int32 Currency = 2;
+      required double Amount = 3;
+      required int64 fid = 4;
+      required double   Commission = 5;//出入金手续费      
+      optional int32 operateflag = 6[default = 0];  //支付方式   0 默认;  1 微信支付
+      required double OperateCommission = 7; //交易所结转手续费金额
+      required int32    CommissionInFlag = 8; //入金手续费扣除标志,1是客户，2是会员，3是交易所
+  }
+  repeated OperateInfo Info = 7;
+}
+
+//单边账调整应答 0x07010006
+message E2EChangeOneSideAccountRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 UserId = 4;
+  required int64 OperDate = 5;
+}
+
+// 手续费结转请求 0x07010009
+message  E2EChangeCommisionMoneyReq{
+  required string SID = 1;
+  required int32 UserId = 2;
+  required int32 UserType = 3;   //为1
+  required int32 LoginId = 4;
+  required int32 AccountId = 5;
+  required int32 OperateType = 6;//为1
+  required int32 Currency = 7;
+  required double Amount = 8;
+  required int64 fid = 9;       //为空
+  required int64 OperDate = 10;
+}
+
+// 手续费结转回应 0x0701000A
+message E2EChangeCommisionMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 UserId = 4;
+  required int64 OperDate = 5;
+  required double BeforeAmount = 6;
+  required double AfterAmount = 7; 
+}
+
+// 交易所优惠返还请求 0x0701000B
+// 综合会员优惠返还请求 0x0701000D
+message  E2EChangePaybackMoneyReq{
+    required string sid = 1;
+    required int32  userid = 2; //支付方userid
+    required int32  loginid = 3;//操作人登陆账户标识
+    required int32  payeeuserid = 4;//收款方userid
+    required double amt = 5;
+    required string desc = 6;
+    required int64  operatetime = 7;
+    required int64  logid = 8;  // 申请LOGID
+}
+
+// 交易所优惠返还请求响应 0x0701000C
+// 综合会员优惠返还请求响应 0x0701000E
+message E2EChangePaybackMoneyRsp{
+    required int32  retcode = 1;
+    required string sid = 2;
+    required int32 loginid = 3;//操作人登陆账户标识
+    required int32  userid = 4; //支付方userid
+    required int64  operatetime = 5;
+    required int64 payerseq = 6; // 支付方流水号
+    required int64 payeeseq = 7; // 收款方流水
+}
+
+//////////////////////////////////////////////////////////////////////
+// 银行服务与浮动盈亏模块交互
+//////////////////////////////////////////////////////////////////////
+// 查浮动盈亏请求 0x22334487
+message  E2EQueryFloatRevenuesReq{
+  required string SID = 1;
+  required int32 UserID = 2;
+}
+
+// 查浮动盈亏回应 0x22334488
+message E2EQueryFloatRevenuesRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 UserID = 3;
+  required double Sum = 4;
+}
+
+//////////////////////////////////////////////////////////////////////
+// 银行服务与接口服务交互
+//////////////////////////////////////////////////////////////////////
+// 出入金请求 0x0F010001
+message  E2EInOutMoneyReq{
+  required string SID = 1;   
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId= 5;
+  required int32 BankId = 6;
+  required int32 OperateType = 7;  // 1 出金 2 入金
+  required int32 Currency = 8;
+  required double Amount = 9;
+  required string FundPsw = 10;
+  optional string BankPsw = 11;
+  optional string Reversed = 12;  // 农行k宝信息
+}
+
+// 出入金回应 0x0F010002
+message E2EInOutMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+  optional string RetMsg = 7; // 20160516
+  optional string PostUrl = 8; // 20160516
+  optional string PostData = 9; // 20160516
+}
+
+// 签约请求 0x0F010003
+message E2EAttachAcctReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+  required int32 ReckonFlag = 7;
+  required string BankAcct = 8;
+  required string CustName = 9;
+  required int32 IdType = 10;
+  required string IdNumber = 11;
+  required string FundPsw = 12;
+  optional string AgentName = 13;     // 机构签约时用
+  optional int32 AgentIdType = 14;    // 机构签约时用
+  optional string AgentIdNumber = 15; // 机构签约时用
+  optional string BankPsw = 16;
+  optional string Reversed = 17;  // 农行k宝信息
+}
+
+// 签约回应 0x0F010004
+message E2EAttachAcctRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+// 解约请求 0x0F010005
+message E2EDetachAcctReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+  required string BankAcct = 7;
+  required string CustName = 8;
+  required int32 IdType = 9;
+  required string IdNumber = 10;
+  required string FundPsw = 11;
+  optional string BankPsw = 12;
+  optional string Reversed = 17;  // 农行k宝信息
+}
+
+// 解约回应 0x0F010006
+message E2EDetachAcctRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+// 更新用户资料请求 0x0F010007
+message  E2EUpdateUserInfoReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+  required string CustName = 7;
+  required int32 IdType = 8;
+  required string IdNumber = 9;
+  optional string BankPsw = 10;
+}
+// 更新用户资料回应 0x0F010008
+message E2EUpdateUserInfoRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;  
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+// 查询交易所余额请求 0x0F010009
+message E2EQueryMoneyReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+}
+// 查询交易所余额回应 0x0F01000A
+message E2EQueryMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+  required double Amount = 7;
+  required double AmountAvailable = 8;
+  required double AmountFetchable = 9;
+}
+
+// 查询客户在银行签约状请求 0x0F01000B
+message E2EQuerySignStatusReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+}
+// 查询客户在银行签约状回应 0x0F01000C
+message E2EQuerySignStatusRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+  required int32 Status = 7;
+}
+
+// 手续费结转请求 0x0F01000D
+message E2EFinalFeeReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+  required double Amount = 7;
+  required int64 Tradedate = 8;
+}
+// 手续费结转回应 0x0F01000E
+message E2EFinalFeeRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+// 强解/强签请求 0x0F01000F
+message E2EBruteDeAttachReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+  required string BankAcct = 7;
+  required int32 type = 8;      // 1 强解 2 强签
+}
+// 强解/强签回应 0x0F010010
+message E2EBruteDeAttachRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+// 查询银行余额请求 0x0F01000B
+message E2EQueryBankMoneyReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+}
+// 查询银行余额回应 0x0F01000C
+message E2EQueryBankMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+  required double Amount = 7;
+  required double AmountAvailable = 8;
+  required double AmountFetchable = 9;
+}
+
+// 查手续费结转请求 0x0F01000D
+message E2EQueryFinalFeeReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required string CustomerName = 4;
+  required string CustomerTel = 5;
+}
+// 查手续费结转回应 0x0F01000E
+message E2EQueryFinalFeeRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 MemberId=5;
+}
+
+// 清算请求
+message  E2ESettmentReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 FrmAccountId = 4;
+  required int32 DstAccountId = 5;  
+  required int32 Direction = 6;
+  required int32 Currency = 7;
+  required double Amount = 8;
+}
+
+// 清算回应
+message E2ESettmentRsp{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int64 OperDate = 3;
+  required int32 RetCode = 4;
+}
+// 清算结果查询请求
+message  E2ESettmentResultReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 FrmAccountId = 4;
+  required int32 DstAccountId = 5;  
+  required int32 Direction = 6;
+  required int32 Currency = 7;
+  required double Amount = 8;
+}
+
+// 清算结果查询回应
+message E2ESettmentResultRsp{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 RetCode = 4;
+}
+
+// 转账请求
+message  E2ETransferReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 MemberId = 4;
+  required int32 FrmAccountId = 5;
+  required int32 DstAccountId = 6;  
+  required int32 Direction = 7;
+  required int32 Currency = 8;
+  required double Amount = 9;
+}
+
+// 转账回应
+message E2ETransferRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 MemberId=5;
+}
+
+// 更新银行配置请求
+message E2EUpdateBankConfReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required string CustomerName = 4;
+  required string CustomerTel = 5;
+}
+// 更新银行配置回应
+message E2EUpdateBankConfRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 MemberId=5;
+}
+
+//单边账调整请求 0x0F010011
+message E2EOneSideAccountAdjustReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 MemberId = 3;    //会员标识
+  required int32 AccountId= 4;         //单边账数据序号
+}
+
+//单边账调整响应  0x0F010012
+message E2EOneSideAccountAdjustRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 AccountId= 4;       //单边账数据序号
+}
+
+
+//单边账审批请求 0x0F010013
+message E2EOneSideAccountAuditReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 MemberId = 3;    //会员标识
+  required int32 AccountId= 4;         //单边账审批序号
+}
+
+//单边账审批响应 0x0F010014
+message E2EOneSideAccountAuditRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 AccountId=4;       //单边账审批序号
+}             
+
+//结息请求   0x0F010017
+message E2EInterestSettlementReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 MemberId = 3;    //会员标识
+  required int32 UserId=4;
+  required int32 CustomerId=5;
+  required double Amount=6;       //总额
+}
+
+//结息响应  0x0F010018
+message E2EInterestSettlementRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+}
+
+//手续费结转操作请求  0x0F010015
+message E2ECommissionCarryOverReq
+{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required string SysFlow=6;    //系统流水（手续结转费流水）
+  required int32 OperType=7;    //操作类型   1 待划转 2表示确认结转  3 取消结转  4 打印(打印次数+1)
+}
+
+//手续费结转操作响应  0x0F010016
+message E2ECommissionCarryOverRsp
+{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+// 查询可返还金额请求 0x0F010019
+message E2EQueryPaybackMoneyReq{
+  required string SID = 1;
+  required int32 LoginId = 2;    // 付方LoginId
+  required int32 CustomerId = 3; // 付方CustomerId
+  required int32 UserId = 4;     // 付方UserId
+  required int32 MemberId = 5;   // 付方MemberId
+  required int32 Type = 6;       // 1 交易所返还 2 综合类会员返还（目前固定填2）
+}
+// 查询可返还金额回应 0x0F01001A
+message E2EQueryPaybackMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;    // 付方LoginId
+  required int32 CustomerId = 4; // 付方CustomerId
+  required int32 UserId = 5;     // 付方UserId
+  required int32 MemberId = 6;   // 付方MemberId
+  required double MaxPaybackMoney = 7; // 最大可返还金额
+}
+
+// 返还金额请求 0x0F01001B
+message E2EPaybackMoneyReq{
+  required string SID = 1;
+  required int32 LoginId = 2;     // 付方LoginId
+  required int32 CustomerId = 3;  // 付方CustomerId
+  required int32 UserId = 4;      // 付方UserId
+  required int32 MemberId = 5;    // 付方MemberId
+  required int32 Type = 6;        // 1 交易所返还 2 综合类会员返还
+  required string PayeeId = 7;    // type = 1 时综合类会员的编号 2 客户的登陆账号
+  required double PaybackMoney = 8; // 返还金额
+  required string PaybackDesc = 9; // 返还理由
+}
+// 返还金额回应 0x0F01001C
+message E2EPaybackMoneyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+//核算退费申请请求 0x0F01001D
+message E2EPaybackMoneyApplyReq{
+  required string SID = 1;
+  required int32 LoginId = 2;     // 付方LoginId
+  required int32 CustomerId = 3;  // 付方CustomerId
+  required int32 UserId = 4;      // 付方UserId
+  required int32 MemberId = 5;    // 付方MemberId
+  required int32 Type = 6;        // 1 交易所返还 2 综合类会员返还
+  required string PayeeId = 7;    // type = 1 时综合类会员的编号 2 客户的登陆账号
+  required double PaybackMoney = 8; // 返还金额
+  required string PaybackDesc = 9; // 返还理由
+}
+//核算退费申请回应 0x0F01001E
+message E2EPaybackMoneyApplyRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+//核算退费复核请求 0x0F01001F
+message E2EPaybackMoneyReviewReq{
+  required string SID = 1;
+  required int32 LoginId = 2;     // 付方LoginId
+  required int32 CustomerId = 3;  // 付方CustomerId
+  required int32 UserId = 4;      // 付方UserId
+  required int32 MemberId = 5;    // 付方MemberId
+  required int64 LogId = 6;       // 核算退费记录标识
+}
+
+//核算退费复核回应 0x0F010020
+message E2EPaybackMoneyReviewRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+//核算退费不通过请求 0x0F010021
+message E2EPaybackMoneyNoPassReq{
+  required string SID = 1;
+  required int32 LoginId = 2;     // 付方LoginId
+  required int32 CustomerId = 3;  // 付方CustomerId
+  required int32 UserId = 4;      // 付方UserId
+  required int32 MemberId = 5;    // 付方MemberId
+  required int64 LogId = 6;       // 核算退费记录标识
+}
+
+//核算退费不通过回应 0x0F010022
+message E2EPaybackMoneyNoPassRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;
+}
+
+
+//交易系统查询清算结果和清算状态
+/////////////////////////////////////////////
+//清算处理环节查询请求
+message E2EClearingProcessLinkQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+}
+
+//清算处理环节查询响应
+message E2EClearingProcessLinkQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 ClearingLink=6;     //清算处理环节（清算文件生成、上传清算文件和清算结果处理）
+}
+
+//清算处理环节配置查询请求
+message E2EClearingProcessQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6;     //清算日期
+}
+
+//清算处理环节配置查询响应
+message E2EClearingProcessQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  message ClearingProcessQueryGroup
+  {
+        required int32 ClearingLink=1;    //清算处理环节
+        required int32 ProcessStatus=2;   //处理状态
+        required string StartTime=3;      //处理开始时间
+        required string EndTime=4;        //处理结束时间
+        required int32  IsNeedRepeatClearing=5;   //是否需要重新清算
+        required int32  ClearingCount=6;  //清算批次
+   }
+   repeated ClearingProcessQueryGroup ClearingProcessQueryList = 6;
+}
+
+//清算报表结算会员数据查询请求
+message E2EClearSettleDataQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+  required int32 BeginRow=7;       //开始行
+  required int32 EndRow=8;         //结束行
+}
+
+//清算报表结算会员数据查询响应
+message E2EClearSettleDataQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 AllRecordNum=6;     //总记录数
+  message ClearSettleDataGroup
+  {
+    required string MemberNumber=1;        //会员编号
+    required string MemberName=2;          //会员名称 
+    required double GainAndLoss=3;         //盈亏
+    required double LateFee=4;             //滞纳金
+    required double TradeAmount=5;         //交易金额
+    required double Commission=6;          //手续费
+  }
+  repeated ClearSettleDataGroup ClearSettleDataList = 7;
+}
+
+//清算报表综合会员数据查询请求
+message E2EClearMultiDataQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+  required int32 BeginRow=7;       //开始行
+  required int32 EndRow=8;         //结束行
+}
+
+//清算报表综合会员数据查询响应
+message E2EClearMultiDataQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 AllRecordNum=6;     //总记录数
+  message ClearMultiDataGroup
+  {
+    required string MemberNumber=1;        //会员编号
+    required string MemberName=2;          //会员名称 
+    required double GainAndLoss=3;         //盈亏
+    required double LateFee=4;             //滞纳金
+    required double TradeAmount=5;         //交易金额
+    required double Commission=6;          //手续费
+    required double DeliveryGoods=7;       //交割货款 
+    required double DeliveryFee=8;         //交割费
+  }
+  repeated ClearMultiDataGroup ClearMultiDataList = 7;
+}
+
+//清算报表交易客户数据查询请求
+message E2EClearCustomerDataQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+  required int32 BeginRow=7;       //开始行
+  required int32 EndRow=8;         //结束行
+}
+
+//清算报表交易客户数据查询响应
+message E2EClearCustomerDataQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 AllRecordNum=6;     //总记录数
+  message ClearCustomerDataGroup
+  {
+    required string LoginAccount=1;        //登陆账号
+    required string CustomerName=2;        //用户名称 
+    required double GainAndLoss=3;         //处理状态
+    required double LateFee=4;             //滞纳金
+    required double TradeAmount=5;         //交易金额
+    required double Commission=6;          //手续费
+    required double DeliveryGoods=7;       //交割货款 
+    required double DeliveryFee=8;         //交割费
+  }
+  repeated ClearCustomerDataGroup ClearCustomerDataList = 7;
+}
+
+//清算报表经纪会员数据查询请求
+message E2EClearBrokerDataQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+  required int32 BeginRow=7;       //开始行
+  required int32 EndRow=8;         //结束行
+}
+
+//清算报表经纪会员数据查询响应
+message E2EClearBrokerDataQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 AllRecordNum=6;     //总记录数
+  message ClearBrokerDataGroup
+  {
+    required string MemberNumber=1;        //会员编号
+    required string MemberName=2;          //会员名称 
+    required double Commission=3;          //手续费
+    required double TradeAmount=4;
+  }
+  repeated ClearBrokerDataGroup ClearBrokerDataList = 7;
+}
+
+//中国银行的清算结果查询请求
+message E2EBOCClearResultQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+  required int32 BeginRow=7;     //开始行
+  required int32 EndRow=8;       //结束行
+}
+
+//中国银行的清算结果查询请求
+message E2EBOCClearResultQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 AllRecordNum=6;     //总记录数
+  message BOCClearResultQueryGroup
+   {
+        required string SignAccount=1;    //签约账号
+        required double BankBalance=2;   //银行余额
+        required double SystemBalance=3; //系统余额
+        required int32  ProcessFlag=4;    //处理标志
+        required string Remark=5;        //备注
+   }
+   repeated BOCClearResultQueryGroup BOCClearResultQueryList = 7;
+}
+
+//清算结果查询请求
+message E2EClearResultQueryReq
+{
+  required string SID = 1;      //流水号
+  required int32 LoginId = 2;   //登陆标识
+  required int32 UserId = 3;    //会员标识
+  required int32 UserType=4;    //用户类型
+  required int32 BankId=5;       //银行标识
+  required int64 ClearingDate=6; //清算日期
+  required int32 OperType=7;     //操作类型
+  required int32 BeginRow=8;       //开始行
+  required int32 EndRow=9;         //结束行
+}
+
+//清算结果查询响应
+message E2EClearResultQueryRsp
+{
+  required int32 RetCode = 1;   //返回码
+  required string SID = 2;      //流水号
+  required int32 LoginId = 3;   //登陆标识
+  required int32 PackageFlag = 4[default = 1];  //分包标志
+  required int32 PackageNum = 5[default = 1];
+  required int32 AllRecordNum=6;     //总记录数
+  message ClearResultQueryGroup
+  {
+    required string MemberNumber=1;        //会员编号
+    required string MemberName=2;          //会员名称 
+    required double ClearingAmount=3;      //清算资金
+    required int32  ClearingResult=4;  //清算结果
+    required string ErrorMsg=5;       //错误信息
+    required string Remark=6;          //备注
+    required int32  UserType=7;      //用户类型
+  }
+  repeated ClearResultQueryGroup ClearResultQueryList = 7;
+}
+
+
+
+// 交易系统到出入金服务 E2B
+//////////////////////////////////////////////////////////////////////
+// 交易系统与出入金服务交互
+//////////////////////////////////////////////////////////////////////
+message AdditionalInfo {
+  required int32 type = 1;   // 附加属性类型
+  required string value = 2; // 附加属性值
+}
+
+// 交易端签到/签退请求 0x11010001
+message E2BSignInOutReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required int32 Type = 3;
+  required string Reserved = 4;
+}
+// 交易端签到/签退回应 0x11010002
+message E2BSignInOutRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;   // 并非所有银行签到签退都返回流水
+  required int32 BankID = 3;
+  required int32 Type = 4;
+  optional string RetMsg = 5;
+  required int32 RetCode = 6;
+}
+// 交易端签约请求
+message E2BAttachAcctReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required string ExchPsw = 5;
+  required string CustName = 6;
+  required int32 CustCIDType = 7;
+  required string CustCID = 8;
+  optional string AgentName = 9;
+  optional int32 AgentCIDType = 10;
+  optional string AgentCID = 11;
+  optional string BankPsw = 12;
+  optional string Reversed = 13;
+}
+// 交易端签约回应
+message E2BAttachAcctRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+  optional string BankCustomerID = 6;
+}
+// 交易端解约请求
+message E2BDetachAcctReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required string ExchPsw = 5;
+  required int32 CustCIDType = 6;
+  required string CustCID = 7;
+  optional string BankPsw = 8;
+  optional string CustName = 9;
+  optional string Reversed = 10;
+}
+// 交易端解约回应
+message E2BDetachAcctRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+}
+// 交易端入金请求
+message E2BInMoneyReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required int32 CustCIDType = 5;
+  required string CustCID = 6;
+  required int32 Currency = 7;  
+  required double Amount = 8;
+  optional string CustName = 9;
+  optional string BankPsw = 10;
+  optional string Reversed = 11;
+}
+// 交易端入金回应
+message E2BInMoneyRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+  optional string PostUrl = 6; // 20160516  
+  optional string PostData = 7; // 20160516
+}
+// 交易端出金请求
+message E2BOutMoneyReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required string ExchPsw = 5;
+  required int32 CustCIDType = 6;
+  required string CustCID = 7;
+  required int32 Currency = 8;
+  required double Amount = 9;
+  optional string CustName = 10;
+  optional int32 RepeatFlag = 11;
+  optional string BankPsw = 12;
+  repeated AdditionalInfo AddInfo = 13;
+  optional string Reversed = 14;
+}
+// 交易端出金回应
+message E2BOutMoneyRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+}
+// 交易端查询银行余额请求
+message E2BQueryBankMoneyReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required string ExchPsw = 5;
+  required int32 CustCIDType = 6;
+  required string CustCID = 7;
+}
+// 交易端查询银行余额回应
+message E2BQueryBankMoneyRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 Currency = 4;
+  required double Amount = 5;
+  required double AmountAvailable = 6;
+  required double AmountFetchable = 7;
+  optional string RetMsg = 8;
+  required int32 RetCode = 9;
+}
+// 交易端冲正请求
+message E2BAdjustMoneyReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required int32 Type = 5;
+  required string SID = 6;
+  optional int32 CustCIDType = 7;
+  optional string CustCID = 8;
+  required int32 Currency = 9;
+  optional double Amount = 10;
+  optional string CustName = 11;
+}
+// 交易端冲正回应
+message E2BAdjustMoneyRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+}
+// 交易端文件通知请求
+message E2BFileNotificationReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required int32 Type = 3;
+}
+// 交易端文件通知回应
+message E2BFileNotificationRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+}
+// 交易端更新用户资料请求
+message E2BUpdateUserInfoReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required string ExchPsw = 5;
+  required string CustName = 6;
+  required int32 CustCIDType = 7;
+  required string CustCID = 8;
+  optional string BankPsw = 9;
+}
+// 交易端更新用户资料回应
+message E2BUpdateUserInfoRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  optional string RetMsg = 4;
+  required int32 RetCode = 5;
+}
+
+// 交易端查询用户签约状态请求
+message E2BQuerySignStatusReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required string CustName = 5;
+  required int32 CustCIDType = 6;
+  required string CustCID = 7;
+}
+// 交易端查询用户签约状态回应
+message E2BQuerySignStatusRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 Status = 4;
+  optional string RetMsg = 6;
+  required int32 RetCode = 7;
+}
+// 交易端对账开始请求
+message E2BCheckStartReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required int32 BatchNo = 3;
+  optional string TradeDate = 4;
+}
+// 交易端对账开始回应
+message E2BCheckStartRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}  
+
+// 交易端清算开始请求  0x11010019
+message E2BClearingStartReq{
+
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required int32 BatchNo = 3;
+  required string TradeDate = 4;
+  required int32 RecordCount = 5 [default = 0];
+  required int32 Type = 6 [default = 1];
+  message ClearFileInfo
+  {
+      required string ClearFileName = 1;
+      required string ClearFileMD5 = 2;
+  }
+  required int32 ClearFileCount=7;
+  repeated ClearFileInfo FileInfo = 8;
+  optional string InOutTransFileName = 9;
+  optional string InOutTransFileMD5 = 10;
+  optional int32 InOutTransRecordCount = 11 [default = 0];
+  optional string SignAcctTransFileName = 12;
+  optional string SignAcctTransFileMD5 = 13;
+  optional int32 SignAcctTransRecordCount = 14 [default = 0];
+}
+// 交易端清算开始回应  0x11010020
+message E2BClearingStartRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+  required int32 Type = 5 [default = 1];
+  required int32 RecordCount = 6 [default = 0];
+  message UploadFileInfo
+  {
+      required string UploadFileName = 1;
+      required string UploadFileNameMD5 = 2;
+  }
+  optional int32 UploadFileCount=7 [default = 0];
+  repeated UploadFileInfo UploadInfo = 8;
+} 
+
+
+// 出入金服务到交易系统 B2E
+//////////////////////////////////////////////////////////////////////
+// 出入金服务与交易系统交互
+//////////////////////////////////////////////////////////////////////
+// 银行端签约请求
+message B2EAttachAcctReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional string ExchPsw = 5;
+  required string CustName = 6;
+  required int32 CustCIDType = 7;
+  required string CustCID = 8;
+}
+// 银行端签约回应
+message B2EAttachAcctRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端解约请求
+message B2EDetachAcctReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  optional string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional string ExchPsw = 5;
+  optional int32 CustCIDType = 6;
+  optional string CustCID = 7;
+}
+// 银行端解约回应
+message B2EDetachAcctRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端入金请求
+message B2EInMoneyReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional int32 CustCIDType = 5;
+  optional string CustCID = 6;  
+  required int32  Currency = 7;
+  required double Amount = 8;
+  optional int32 RepeatFlag = 9;
+}
+// 银行端入金回应
+message B2EInMoneyRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端出金请求
+message B2EOutMoneyReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional string ExchPsw = 5;
+  optional int32 CustCIDType = 6;
+  optional string CustCID = 7;
+  required int32 Currency = 8;
+  required double Amount = 9;
+}
+// 银行端出金回应
+message B2EOutMoneyRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端查询余额请求
+message B2EQueryMoneyReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  optional string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional string ExchPsw = 5;
+  optional int32 CustCIDType = 6;
+  optional string CustCID = 7;
+}
+// 银行端查询余额回应
+message B2EQueryMoneyRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 Currency = 4;
+  required double Amount = 5;
+  required double AmountAvailable = 6;
+  required double AmountFetchable = 7;
+  required int32 RetCode = 8;
+}
+// 银行端冲正请求
+message B2EAdjustMoneyReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional int32 Type = 5;
+  required string SID = 6;
+  optional double Amount = 7;
+}
+// 银行端冲正回应
+message B2EAdjustMoneyRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+  optional double Amount = 5;
+}
+// 银行端文件通知请求
+message B2EFileNotificationReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required int32 Type = 3;
+}
+// 银行端文件通知回应
+message B2EFileNotificationRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端更新用户资料请求
+message B2EUpdateUserInfoReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string OldBankAcct = 3;
+  required string NewBankAcct = 4;
+  required string ExchAcct = 5;
+  optional string ExchPsw = 6;
+  required string CustName = 7;
+  required int32 CustCIDType = 8;
+  required string CustCID = 9;
+}
+// 银行端更新用户资料回应
+message B2EUpdateUserInfoRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端查询资金密码请求
+message B2EQueryserPasswordReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  optional int32 CustCIDType = 5;
+  optional string CustCID = 6;
+}
+// 银行端查询资金密码回应
+message B2EQueryserPasswordRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required string FundPsw = 4;
+  required int32 RetCode = 5;
+}
+// 银行端对账文件获取结果请求
+message B2ECheckFileNotificationReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string CheckFileName = 3;
+  required int32 CheckFileCount = 4;
+  required string CheckFileNameMD5 = 5;
+  optional string CheckCustStatusFileName = 6;
+  optional int32 CheckCustStatusFileCount = 7;
+  optional string CheckCustStatusFileNameMD5 = 8;
+}
+// 银行端对账文件获取结果应答
+message B2ECheckFileNotificationRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+
+// 银行端清算结果文件获取结果请求  0x1102001F
+message B2EClearingFileNotificationReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string TradeDate = 3;
+  required int32  RetCode = 4;
+  required int32 RecordCount = 5 [default = 0];
+
+  message ResultFileInfo
+  {
+      required string ResultFileName = 1;
+      required string ResultFileNameMD5 = 2;
+  }
+  required int32 ResultFileCount=6;
+  repeated ResultFileInfo ResultInfo = 7;
+}
+
+// 银行端对清算结果文件获取结果应答  0x11020020
+message B2EClearingFileNotificationRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+
+// 银行签约信息维护请求 0x11020021
+message B2ESingInfoReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string ExchAcct = 3;
+  required int32 CustCIDType = 4;
+  required string CustCID = 5;
+  optional string CustName = 6;
+}
+// 银行签约信息维护应答 0x11020022
+message B2ESingInfoRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+
+// 银行端出入金推送  -- 0x11020025
+message B2EInOutNotifyReq {
+  required string BankSID = 1;
+  required string ExchSID = 2;
+  required int32 BankId = 3;
+  optional int32  TransType = 4;   //1 出金 2 入金
+  required int32  Currency = 5;
+  required double Amount = 6;
+  required int32 Status = 7;     //99999成功，非99999失败
+  optional string RetMsg = 8;
+  optional string BankAcct = 9; // 20160516
+}
+// 银行端出入金推送  -- 0x11020026
+message B2EInOutNotifyRsp {
+  required string BankSID = 1;
+  required string ExchSID = 2;
+  required int32 BankId = 3;
+  required int32  RetCode = 4;
+}
+
+    
+//////////////////////////////////////////////////////////////////////
+// 建设银行特殊流程
+/////////////////////////////////////////////////////////////////////
+// 银行端出金申请请求
+message B2EOutMoneyAppReq{
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required string BankAcct = 3;
+  required string ExchAcct = 4;
+  required int32 Currency = 5;
+  required double Amount = 6;
+  required string AppSID = 7;
+}
+// 银行端出金申请回应
+message B2EOutMoneyAppRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 交易端出金审批申请结果请求
+message E2BOutMoneyAppResultReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string AppSID = 3;
+  required int32 AuditResult = 4; 
+  optional string Remark = 5;
+}
+// 交易端出金审批申请结果回应
+message E2BOutMoneyAppResultRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  required string AppSID = 4;
+  required string TxSid = 5;
+  required int32 RetCode = 6;
+}
+// 银行端出金流水查询请求
+message B2EQueryOutMoneySIDReq {
+  required string BankSID = 1;
+  required int32 BankId = 2;
+  required string ExchAcct = 3;
+  optional int64 BeginTime = 4;
+  optional int64 EndTime = 5;
+  optional string AppSID = 6;
+}
+// 银行端出金流水查询项
+message B2EQueryOutMoneySIDItem{
+  required string BankSID = 1;
+  required int64 TxTime = 2;
+  required string BankAcct = 4;
+  required string ExchAcct = 5;
+  required int32 Currency = 6;
+  required double Amount = 7;
+  required int32 Status = 8;
+}
+// 银行端出金流水查询回应
+message B2EQueryOutMoneySIDRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+  repeated B2EQueryOutMoneySIDItem InfoItem = 5;
+}
+// 银行端签约信息查询请求
+message B2EQueryUserSignInfoReq {
+  required string BankSID = 1;
+  required int32 BankID = 2;
+  required int32 FunCode = 3;
+  optional string ExchAcct = 4;
+  optional int32 CustCIDType = 5;
+  optional string CustCID = 6;
+}
+// 银行端签约信息查询回应
+message B2EQueryUserSignInfoRsp {
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+  optional int32 CustCIDType = 5;
+  optional string CustCID = 6;
+  optional string CustName = 7;
+  optional string BankAcct = 8;
+  optional string ExchAcct = 9;
+}
+// 银行端会员信息推送项
+message B2EPushUserInfoItem {
+  required int32  TxType = 1;
+  required int32  CustCIDType = 2;
+  required string CustCID = 3;
+  optional string ExchAcct = 4;
+  required string BankAcct = 5;
+  optional string CustName = 6;
+  optional string CustPhone = 7;
+  optional string CustAddr = 8;
+  required int32  Status = 9;
+}
+// 银行端会员信息推送请求
+message B2EPushUserInfoReq {
+  required string BankSID = 1;
+  required int32 BankId = 2;
+  repeated B2EPushUserInfoItem InfoItem = 3;
+}
+// 银行端会员信息推送回应
+message B2EPushUserInfoRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+// 银行端出入金推送项
+message B2EPushInOutInfoItem {
+  required int32 TxType = 1;
+  required int32  Currency = 2;
+  required double Amount = 3;
+  required string ExchAcct = 4;
+  required string BankSID = 5;
+}
+// 银行端出入金推送请求
+message B2EPushInOutInfoReq {
+  required string BankSID = 1;
+  required int32 BankId = 2;
+  repeated B2EPushInOutInfoItem InfoItem = 3;
+}
+// 银行端出入金推送回应
+message B2EPushInOutInfoRsp{
+  required string ExchSID = 1;
+  required string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}
+//////////////////////////////////////////////////////////////////////
+// 与统一接入服务平台服务注册
+////////////////////////////////////////////////////////////////////
+
+// 服务注册请求 0x0F000001
+message SvrRegReq{
+  required string SID = 1;
+  required int32 SvrType = 2;
+  required string SvrId = 3;
+}
+
+// 服务注册响应 0x0F000002
+message SvrRegRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+}
+
+//////////////////////////////////////////////////////////////////////
+// 结束
+//////////////////////////////////////////////////////////////////////
