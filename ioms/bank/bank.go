@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// MyBank define the interface of bank plugin
 type MyBank interface {
 	Name() string
 	ID() int64

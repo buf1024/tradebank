@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/sinal"
+//	"os/sinal"
 	"syscall"
 	"time"
 
