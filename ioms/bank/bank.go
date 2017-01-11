@@ -8,7 +8,7 @@ import (
 type MyBank interface {
 	Name() string
 	ID() int64
-	Init(path string) error
+	LoadConfig(path string) error
 }
 
 var mybank map[int64]string

@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-//	"os/sinal"
+	"os/sinal"
 	"syscall"
 	"time"
 
-	"tradebank/bankmsg"
 	"tradebank/ioms/bank"
 	"tradebank/logging"
 	"tradebank/proto"
@@ -217,7 +216,7 @@ func (m *IomServer) LoadBankConf() (err error) {
 		if err != nil {
 			return nil
 		}
-		err = myank.Init(m.FileConf)
+		err = myank.LoadConfig(m.FileConf)
 		if err != nil {
 			return err
 		}

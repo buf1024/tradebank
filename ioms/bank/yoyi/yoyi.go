@@ -15,7 +15,7 @@ func (b *yoyi) ID() int64 {
 	return 26
 }
 
-func (b *yoyi) Init(path string) error {
+func (b *yoyi) LoadConfig(path string) error {
 	return nil
 }
 
