@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/sinal"
+	"os/signal"
 	"syscall"
 	"time"
 
@@ -14,7 +14,7 @@ import (
 	"tradebank/util"
 )
 
-type Handler func(int, interface{}) int
+//type Handler func(int, interface{}) int
 
 type exchMsg struct {
 	conn    net.Conn
@@ -22,37 +22,40 @@ type exchMsg struct {
 	message []byte
 }
 
-type exchConn struct {
+type Conn struct {
 	conn      net.Conn
-	conStatus bool
+	Status    bool
 	regStatus bool
 
 	recvChan chan *exchMsg
 	sendChan chan *exchMsg
 }
 
-type IomServer struct {
+// Server represents the inout money server
+type Server struct {
 	*Config
 
 	ExitChan chan struct{}
 
 	exchCtx *exchConn
+	Log     *logging.Log
 
-	Log *logging.Log
+	sessChan  chan struct{}
+	timerChan chan struct{}
 }
 
-func (m *IomServer) ListenBank() error {
+func (m *Server) ListenBank() error {
 	return nil
 }
 
-func (m *IomServer) ExchRecv() {
+func (m *Server) ExchRecv() {
 
 }
-func (m *IomServer) ExchSend() {
+func (m *Server) ExchSend() {
 
 }
 
-func (m *IomServer) ExchTimer() {
+func (m *Server) ExchTimer() {
 	for {
 		if !m.exchCtx.conStatus {
 			m.Log.Info("reconnect to exch, ADDR=%s:%d\n", m.ExchAddr, m.ExchPort)
@@ -110,7 +113,7 @@ func (m *IomServer) ExchTimer() {
 		time.Sleep(m.TimeReconn * time.Second)
 	}
 }
-func (m *IomServer) ConnectExch() error {
+func (m *Server) ConnectExch() error {
 	m.Log.Info("connect to exch, ADDR=%s:%d\n", m.ExchAddr, m.ExchPort)
 
 	conn, err := net.DialTimeout("tcp",
@@ -138,19 +141,19 @@ func (m *IomServer) ConnectExch() error {
 	return nil
 }
 
-func (m *IomServer) NewBankReq() {
+func (m *Server) NewBankReq() {
 
 }
 
-func (m *IomServer) NewExchReq() {
+func (m *Server) NewExchReq() {
 
 }
 
-func (m *IomServer) IomTimer() {
+func (m *Server) IomTimer() {
 
 }
 
-func (m *IomServer) HandleSignal() {
+func (m *Server) HandleSignal() {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGUSR2, syscall.SIGUSR1)
 END:
@@ -160,11 +163,11 @@ END:
 			switch sig {
 			case syscall.SIGHUP:
 				m.Log.Info("catch SIGHUP, stop the server.")
-				m.StopIomServer()
+				m.StopServer()
 				break END
 			case syscall.SIGTERM:
 				m.Log.Info("catch SIGTERM, stop the server.")
-				m.StopIomServer()
+				m.StopServer()
 				break END
 			case syscall.SIGUSR1:
 				m.Log.Info("catch SIGUSR1.")
@@ -178,10 +181,10 @@ END:
 	}
 
 }
-func (m *IomServer) Stop() {
+func (m *Server) Stop() {
 
 }
-func (m *IomServer) InitLog() (err error) {
+func (m *Server) InitLog() (err error) {
 	m.Log, err = logging.NewLogging()
 	if err != nil {
 		return err
@@ -203,7 +206,7 @@ func (m *IomServer) InitLog() (err error) {
 
 	return nil
 }
-func (m *IomServer) LoadBankConf() (err error) {
+func (m *Server) LoadBankConf() (err error) {
 	for _, name := range m.Banks {
 		m.Log.Info("init bank, name=%s", name)
 
@@ -224,12 +227,12 @@ func (m *IomServer) LoadBankConf() (err error) {
 	return nil
 }
 
-func (m *IomServer) Control() {
+func (m *Server) Control() {
 
 }
 
-func NewIomServer() *IomServer {
-	m := &IomServer{}
+func NewServer() *Server {
+	m := &Server{}
 	m.exchCtx = make(exchConn)
 
 	return m
