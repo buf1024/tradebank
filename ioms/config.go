@@ -9,12 +9,17 @@ import (
 )
 
 const (
-	PROTO_TCP_SHORT = iota
-	PROTO_TCP_LONG
-	PROTO_HTTP
-	PROTO_HTTPS
+	// ProtoTCPShort TCP short connection
+	ProtoTCPShort = iota
+	// ProtoTCPLong TCP long connection
+	ProtoTCPLong
+	// ProtoHTTP http connection
+	ProtoHTTP
+	// ProtoHTTPS https connection
+	ProtoHTTPS
 )
 
+// Config configre struct
 type Config struct {
 	FileConf string
 
@@ -35,13 +40,13 @@ type Config struct {
 
 	BankProto int64
 
-	Banks []string
+	Bank string
 
-	TimerValue   int64
 	TimeReconn   int64
 	TimeOutValue int64
 }
 
+// LoadConfig load the configuration
 func LoadConfig(path string) (*Config, error) {
 	c := &Config{}
 
@@ -70,28 +75,31 @@ func LoadConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=LOG_SWITCH_TIME")
 	}
-	c.LogSwitchTime, err = int64(strconv.Atoi(str))
+	i, err := strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.LogSwitchTime = int64(i)
 
 	str, ok = f.Get("COMMON", "LOG_LEVEL_FILE")
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=LOG_LEVEL_FILE")
 	}
-	c.LogFileLevel, err = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.LogFileLevel = int64(i)
 
 	str, ok = f.Get("COMMON", "LOG_LEVEL_TERM")
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=LOG_LEVEL_TERM")
 	}
-	c.LogTermLevel, err = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.LogTermLevel = int64(i)
 
 	// net
 	c.ExchAddr, ok = f.Get("COMMON", "EXCH_IP")
@@ -102,10 +110,11 @@ func LoadConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=EXCH_PORT")
 	}
-	c.ExchPort = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.ExchPort = int64(i)
 
 	c.ListenAddr, ok = f.Get("COMMON", "LISTEN_IP")
 	if !ok {
@@ -115,10 +124,11 @@ func LoadConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=LISTEN_PORT")
 	}
-	c.ListenPort = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.ListenPort = int64(i)
 
 	c.BankAddr, ok = f.Get("COMMON", "BANK_IP")
 	if !ok {
@@ -128,10 +138,11 @@ func LoadConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=BANK_PORT")
 	}
-	c.BankPort = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.BankPort = int64(i)
 
 	c.ControlAddr, ok = f.Get("COMMON", "CONTROL_IP")
 	if !ok {
@@ -141,10 +152,11 @@ func LoadConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=CONTROL_PORT")
 	}
-	c.ControlPort = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.ControlPort = int64(i)
 
 	str, ok = f.Get("COMMON", "BANK_PROTO")
 	if !ok {
@@ -152,53 +164,45 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	str = strings.ToLower(str)
 	switch str {
-	case "tcp_long":
-		c.BankProto = int64(PROTO_TCP_LONG)
-	case "tcp_short":
-		c.BankProto = int64(PROTO_TCP_SHORT)
+	case "tcp-long":
+		c.BankProto = int64(ProtoTCPLong)
+	case "tcp-short":
+		c.BankProto = int64(ProtoTCPShort)
 	case "http":
-		c.BankProto = int64(PROTO_HTTP)
+		c.BankProto = int64(ProtoHTTP)
 	case "https":
-		c.BankProto = int64(PROTO_HTTPS)
+		c.BankProto = int64(ProtoHTTPS)
 	default:
 		return nil, fmt.Errorf("unknown proto %s", str)
 
 	}
 
-	// timer
+	// time
 	str, ok = f.Get("COMMON", "TIMEOUT_TIME")
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=TIMEOUT_TIME")
 	}
-	c.TimeOutValue = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
-	str, ok = f.Get("COMMON", "TIMER_INTERVAL")
-	if !ok {
-		return nil, fmt.Errorf("missing configure, sec=COMMON, key=TIMER_INTERVAL")
-	}
-	c.TimerValue = int64(strconv.Atoi(str))
-	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
-	}
+	c.TimeOutValue = int64(i)
+
 	str, ok = f.Get("COMMON", "RECONNECT_INTERVAL")
 	if !ok {
 		return nil, fmt.Errorf("missing configure, sec=COMMON, key=RECONNECT_INTERVAL")
 	}
-	c.TimeReconn = int64(strconv.Atoi(str))
+	i, err = strconv.Atoi(str)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s to interger failed.", str)
+		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
+	c.TimeReconn = int64(i)
 	// busi
-	str, ok = f.Get("COMMON", "BANK_BUSI")
+	str, ok = f.Get("COMMON", "BANK")
 	if !ok {
-		return nil, fmt.Errorf("missing configure, sec=COMMON, key=BANK_BUSI")
+		return nil, fmt.Errorf("missing configure, sec=COMMON, key=BANK")
 	}
-	c.Banks = strings.Split(str, "|")
-	if len(c.Banks) <= 0 {
-		return nil, fmt.Errorf("invalid configure, sec=COMMON, key=BANK_BUSI")
-	}
+	c.Bank = str
 
-	return &c, nil
+	return c, nil
 }

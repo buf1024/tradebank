@@ -34,8 +34,8 @@ func TestLogging(t *testing.T) {
 		log.Warning("warning\n")
 		log.Error("error\n")
 		log.Critical("critical\n")
-
-		time.Sleep(60 * time.Second)
+		log.Sync()
+		time.Sleep(6 * time.Second)
 		running--
 		if running <= 0 {
 			break

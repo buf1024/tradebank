@@ -12,5 +12,5 @@ func SID() string {
 }
 
 func init() {
-	rand.NewSource(time.Now().Nanosecond())
+	rand.NewSource(time.Now().UnixNano())
 }

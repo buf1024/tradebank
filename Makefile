@@ -1,12 +1,12 @@
-bindir=./bin
-exe=ioms
+bindir=bin
+exe=yoyitd
 
-ioms_go=./ioms/main/ioms.go
+yoyitd_go=ioms/bank/yoyitd/main/ioms.go
 
 all:$(exe)
 
 
-ioms: $(ioms_go)
+yoyitd: $(yoyitd_go)
 	@echo "building $@"
 	go build -o $(bindir)/$@ $^
 

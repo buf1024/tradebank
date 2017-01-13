@@ -43,11 +43,12 @@ type Message struct {
 }
 
 type Log struct {
-	status int64
-	sync   bool
-	mutex  sync.Mutex
-	logMsg chan *Message
-	sigMsg chan string
+	status  int64
+	sync    bool
+	mutex   sync.Mutex
+	logMsg  chan *Message
+	sigMsg  chan string
+	syncMsg chan struct{}
 }
 
 var levelString = make(map[string]int64)
@@ -184,6 +185,26 @@ func (l *Log) logMessage(chanMsg *Message, logMsg string, format string, a ...in
 	l.logMsg <- chanMsg
 }
 
+func (l *Log) Sync() {
+	if l.status != statusRunning {
+		fmt.Printf("logging status not right, status = %d\n", l.status)
+		return
+	}
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	if l.sync {
+		for _, log := range loggerTraced {
+			err := log.Sync()
+			if err != nil {
+				fmt.Printf("sync message failed\n")
+			}
+		}
+		return
+	}
+	l.syncMsg <- struct{}{}
+}
+
 func (l *Log) StartSync() error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -206,6 +227,7 @@ func (l *Log) StartAsync() error {
 
 	l.logMsg = make(chan *Message, defAsyncSize)
 	l.sigMsg = make(chan string)
+	l.syncMsg = make(chan struct{})
 
 	go l.waitMsg()
 
@@ -254,6 +276,13 @@ func (l *Log) waitMsg() {
 END:
 	for {
 		select {
+		case <-l.syncMsg:
+			for _, log := range loggerTraced {
+				err := log.Sync()
+				if err != nil {
+					fmt.Printf("sync message failed\n")
+				}
+			}
 		case msg := <-l.logMsg:
 			for _, log := range loggerTraced {
 				_, err := log.Write(msg)

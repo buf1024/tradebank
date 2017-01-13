@@ -13,7 +13,7 @@ type Session struct {
 
 // Get the Session
 func (s *Session) Get(sid string) interface{} {
-	if d, ok := s[sid]; ok {
+	if d, ok := s.data[sid]; ok {
 		return d
 	}
 	return nil
