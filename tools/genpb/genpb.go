@@ -8,25 +8,34 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"io/ioutil"
+
+	"tradebank/tools/genpb/internal/prov"
 )
 
-func gengo(output string, protoDir string, protoFile string) error {
-	return nil
+func gengo(provider prov.Provider, output string, protoFile string) error {
+	outString, err := provider.GenCmdFile(protoFile)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(output, ([]byte)(outString), 0644)
+
+	return err
 }
 
-func genpb(protoc string, protoDir string, protoFile string) error {
-	outDir := fmt.Sprintf("--go_out=%s", protoDir)
-    pathDir := fmt.Sprintf("--proto_path=%s", protoDir)
-	fmt.Printf("\ngenerating protobuf go file...\n")
+func genpb(protoc string, ext string, protoDir string, protoFile string) error {
+	outDir := fmt.Sprintf("--%s_out=%s", ext, protoDir)
+	pathDir := fmt.Sprintf("--proto_path=%s", protoDir)
+	fmt.Printf("\ngenerating protobuf %s file\n", ext)
 	cmd := exec.Command(protoc, outDir, pathDir, protoFile)
 	var output bytes.Buffer
 	cmd.Stdout = &output
-    cmd.Stderr = &output
+	cmd.Stderr = &output
 	err := cmd.Run()
 	if err != nil {
-        return fmt.Errorf("%s", output.String())
+		return fmt.Errorf("%s", output.String())
 	}
-    fmt.Printf("protobuf go file generated\n")
+	fmt.Printf("protobuf %s file generated\n", ext)
 	return err
 }
 
@@ -67,8 +76,22 @@ func main() {
 	i = strings.LastIndex(fileName, ".")
 	if i <= 0 {
 		i = len(fileName)
+	} else {
+		if !strings.HasSuffix(fileName, ".proto") {
+			i = len(fileName)
+		}
 	}
-	pbOutFile := fileName[0:i] + ".pb.go"
+
+	j := strings.LastIndex(*output, ".")
+	if j <= 0 {
+		fmt.Printf("missing file extension, name = %s\n", *output)
+		os.Exit(-1)
+	}
+	ext := (*output)[j+1 : len(*output)]
+	ext = strings.ToLower(ext)
+	provider := prov.GetProvider(ext)
+
+	pbOutFile := fileDir + fileName[0:i] + ".pb." + ext
 
 	cmdOutFile := fileDir + *output
 
@@ -79,12 +102,12 @@ func main() {
 		"output file   = %s\n",
 		protoc, fileDir, file, cmdOutFile)
 
-	err = genpb(protoc, fileDir, file)
+	err = genpb(protoc, ext, fileDir, file)
 	if err != nil {
 		fmt.Printf("\ngenerate protobuf go file error:\n%s\n", err)
 		os.Exit(-1)
 	}
-	err = gengo(cmdOutFile, fileDir, file)
+	err = gengo(provider, cmdOutFile, file)
 	if err != nil {
 		fmt.Printf("\ngenerate protobuf command file error:\n%s\n", err)
 		os.Exit(-1)
