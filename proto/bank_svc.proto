@@ -5,6 +5,7 @@ package proto;
 // message 协议名 {
 //   字段  
 // }
+// 注释使用 //
 
 // 请求协议定义以Req结尾
 // 回应协议定义以Rsp结尾
@@ -1482,7 +1483,7 @@ message B2EQueryOutMoneySIDReq {
   optional int64 EndTime = 5;
   optional string AppSID = 6;
 }
-// 银行端出金流水查询项
+// 银行端出金流水查询项 0x00
 message B2EQueryOutMoneySIDItem{
   required string BankSID = 1;
   required int64 TxTime = 2;
