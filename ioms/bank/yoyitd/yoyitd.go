@@ -18,7 +18,7 @@ func (b *YoyitdServer) ID() int64 {
 	return 26
 }
 
-func (b *YoyitdServer) Init() error {
+func (b *YoyitdServer) Init(s *ioms.Server) error {
 	return nil
 }
 

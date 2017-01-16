@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	
 )
 
 const (
@@ -185,6 +184,97 @@ const (
 	CMD_SVR_REG_REQ = 0x0E000001 // 服务注册请求
 	CMD_SVR_REG_RSP = 0x0E000002 // 服务注册应答
 )
+const (
+	PROTOCOL_HEADER_LENGTH   = 32
+	PROTOCOL_VERSION         = 1
+	INOUTMONEY_PACKET_PREFIX = 0x11000000
+)
+
+type MessageHeader struct {
+	Version  uint32
+	Length   unit32
+	Command  unit32
+	Vender   unit32
+	Market   unit32
+	IsCkSum  unit32
+	CheckSum unit32
+	Extend   unit32
+}
+
+func GetHeaderLength() int64 {
+	return PROTOCOL_HEADER_LENGTH
+}
+
+func IsPacketComplete(buf []byte) bool {
+	// if(len <= get_header_len())
+	// {
+	//     return 0;
+	// }
+
+	// message_head_t header;
+	// memset(&header, 0, sizeof(message_head_t));
+
+	// int ret = parse_header(buf, len, &header);
+	// if(0 != ret)
+	// {
+	//     return -1;
+	// }
+
+	// if(len < header.length)
+	// {
+	//     return 0;
+	// }
+	// return header.length;
+
+	return 0
+}
+
+// int parse_header(const char* buf, int len, message_head_t* header)
+// {
+//     uint32_t version = 0;
+//     uint32_t length = 0;
+//     uint32_t command = 0;
+//     uint32_t vender_id = 0;
+//     uint32_t market = 0;
+//     uint32_t is_cksum = 0;
+//     uint32_t check_sum = 0;
+//     uint32_t extend = 0;
+
+//     int offset = 0;
+
+//     memcpy(&version, buf + offset, sizeof(uint32_t));
+//     header->version = ntohl(version);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&length, buf + offset, sizeof(uint32_t));
+//     header->length = ntohl(length);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&command, buf + offset, sizeof(uint32_t));
+//     header->command = ntohl(command);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&vender_id, buf + offset, sizeof(uint32_t));
+//     header->vender_id = ntohl(vender_id);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&market, buf + offset, sizeof(uint32_t));
+//     header->market = ntohl(market);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&is_cksum, buf + offset, sizeof(uint32_t));
+//     header->is_cksum = ntohl(is_cksum);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&check_sum, buf + offset, sizeof(uint32_t));
+//     header->check_sum = ntohl(check_sum);
+
+//     offset += sizeof(uint32_t);
+//     memcpy(&extend, buf + offset, sizeof(uint32_t));
+//     header->extend = ntohl(extend);
+
+//     return 0;
+// }
 
 var message map[int64]proto.Message
 

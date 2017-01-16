@@ -7,20 +7,20 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"tradebank/logging"
 	"tradebank/util"
 )
 
 type exchMsg struct {
-	conn    net.Conn
 	command int64
 	message []byte
 }
 
-type ExchConn struct {
-	conn      net.Conn
-	Status    bool
+type exchConn struct {
+	conn      *net.TCPConn
+	conStatus bool
 	regStatus bool
 
 	recvChan chan *exchMsg
@@ -31,37 +31,78 @@ type ExchConn struct {
 type Server struct {
 	*Config
 
-	ExitChan chan struct{}
-
 	Log *logging.Log
+
+	exch exchConn
 
 	sessChan  chan struct{}
 	timerChan chan struct{}
 
-	cmdChan chan string
+	cmdChan  chan string
+	exitChan chan struct{}
+}
+
+const (
+	statusInited = iota
+	statusStarted
+	statusReady
+	statusStoped
+)
+
+func (m *Server) bankListen() error {
+	return nil
+}
+
+func (m *Server) exchHandleMsg() {
+END:
+	for {
+		select {
+		// case msg := <-m.exch.recvChan:
+		// 	{
+		// 	}
+		// case msg := <-m.exch.sendChan:
+		// 	{
+
+		// 	}
+		default:
+			// chan close
+			break END
+
+		}
+	}
 }
 
 func (m *Server) exchConnect() error {
-	m.Log.Info("reconnect to exch, ADDR=%s:%d\n", m.ExchAddr, m.ExchPort)
-	// conn, err := net.DialTimeout("tcp",
-	// 	fmt.Sprintf("%s:%d", m.ExchAddr, m.ExchPort), time.Duration(m.TimeOutValue*int64(time.Second)))
-	// if err != nil {
-	// 	m.Log.Info("reconnect to exch failed, ADDR=%s:%d, ERR=%s\n",
-	// 		m.ExchAddr, m.ExchPort, err.Error())
-	// 	return err
-	// }
+	m.Log.Info("connect to exch, addr = %s:%d\n", m.ExchAddr, m.ExchPort)
+	conn, err := net.DialTimeout("tcp",
+		fmt.Sprintf("%s:%d", m.ExchAddr, m.ExchPort),
+		time.Duration(m.TimeOutValue*int64(time.Second)))
+	if err != nil {
+		m.Log.Error("connect to exch failed, add = %s:%d, err=%s\n",
+			m.ExchAddr, m.ExchPort, err)
+		return err
+	}
 
-	// conn.SetDeadline(m.TimeOutValue, time.Second)
-	// (*net.TCPConn)(conn).SetNoDelay(true)
-	// (*net.TCPConn)(conn).SetKeepAlive(true)
+	(conn).(*net.TCPConn).SetNoDelay(true)
+	(conn).(*net.TCPConn).SetKeepAlive(true)
 
-	// m.exchConn.conn = conn
-	// m.exchCtx.conStatus = true
-	// m.exchCtx.regStatus = false
+	m.exch.conn = conn.(*net.TCPConn)
+	m.exch.conStatus = true
+	m.exch.regStatus = false
 
-	// m.exchCtx.recvChan = make(chan *exchMsg, 1024)
-	// m.exchCtx.sendChan = make(chan *exchMsg, 1024)
-	// m.Log.Info("exch connected\n")
+	if m.exch.recvChan != nil {
+		close(m.exch.recvChan)
+	}
+	if m.exch.sendChan != nil {
+		close(m.exch.sendChan)
+	}
+
+	m.exch.recvChan = make(chan *exchMsg, 1024)
+	m.exch.sendChan = make(chan *exchMsg, 1024)
+
+	go m.exchHandleMsg()
+
+	m.Log.Info("exch connected\n")
 
 	return nil
 }
@@ -92,8 +133,21 @@ func (m *Server) exchRegister() error {
 	return nil
 }
 
+func (m *Server) timerOnce(to int64, typ string, ch interface{}, cmd interface{}) {
+	t := time.NewTimer((time.Duration)((int64)(time.Second) * to))
+	<-t.C
+
+	switch {
+	case typ == "exchreconnect":
+		exchChan := (ch).(chan string)
+		exchMsg := (cmd).(string)
+
+		exchChan <- exchMsg
+	}
+}
+
 // task represents exchange connect go routine
-func (m *Server) task() {
+func (m *Server) cmdTask() {
 	for {
 		cmd := <-m.cmdChan
 		switch cmd {
@@ -101,10 +155,21 @@ func (m *Server) task() {
 			{
 				err := m.exchConnect()
 				if err != nil {
-					// Sleep emit connect
-				} else {
-					// emit register
+					m.Stop()
+					return
 				}
+				m.cmdChan <- "register"
+			}
+		case "reconnect":
+			{
+				err := m.exchConnect()
+				if err != nil {
+					m.Log.Info("reconnect to addr=%s:%d\n after %d second",
+						m.ExchAddr, m.ExchPort, m.TimeReconn)
+					go m.timerOnce(m.TimeReconn, "exchreconnect", m.cmdChan, "reconnect")
+					continue
+				}
+				m.cmdChan <- "register"
 			}
 		case "register":
 			{
@@ -115,11 +180,26 @@ func (m *Server) task() {
 					// post
 				}
 			}
+		case "listen":
+			{
+				m.Log.Info("start to listen, addr = %s:%d\n", m.BankAddr, m.BankPort)
+				err := m.bankListen()
+				if err != nil {
+					m.Log.Critical("listen failed, err = %s\n", err)
+					m.Stop()
+				} else {
+					m.Log.Info("listen success")
+				}
+			}
+		case "stop":
+			{
+				fmt.Printf("stop")
+			}
 		}
 	}
 }
 
-func (m *Server) handleSignal() {
+func (m *Server) sigTask() {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGUSR2, syscall.SIGUSR1)
 END:
@@ -172,27 +252,20 @@ func (m *Server) initLog() (err error) {
 	return nil
 }
 
-// // loadBankConf setup the bank configure
-// func (m *Server) loadBankConf() (err error) {
-// 	for _, name := range m.Banks {
-// 		m.Log.Info("init bank, name=%s", name)
+// // initBank setup the bank configure
+func (m *Server) initBank() error {
+	m.Log.Info("init bank, name=%s", m.Bank)
 
-// 		id, err := util.ID(name)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		myank := bank.MyBank(nil)
-// 		mybank, err = bank.Bank(id)
-// 		if err != nil {
-// 			return nil
-// 		}
-// 		err = myank.LoadConfig(m.FileConf)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
+	myank := GetBank(m.Bank)
+	if myank == nil {
+		return fmt.Errorf("bank %s not found", m.Bank)
+	}
+	err := myank.Init(m)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // parseArgs parse the commandline arguments
 func (m *Server) parseArgs() {
@@ -248,48 +321,35 @@ func (m *Server) InitServer() {
 	}
 
 	// load bank configure
-	// err = m.LoadBankConf()
-	// if err != nil {
-	// 	m.Log.Critical("load bank configure failed. ERR=%s\n", err.Error())
-	// 	m.Stop()
-	// 	os.Exit(-1)
-	// }
+	err = m.initBank()
+	if err != nil {
+		m.Log.Critical("load bank configure failed. ERR=%s\n", err.Error())
+		m.Stop()
+		os.Exit(-1)
+	}
 
-	// connect to exch
-	m.Log.Info("connecting to exch\n")
-	// err = m.ConnectExch()
-	// if err != nil {
-	// 	m.Log.Critical("connect to exch failed. ERR=%s\n", err.Error())
-	// 	m.Stop()
-	// 	os.Exit(-1)
-	// }
-	m.Log.Info("start exch reconnect go routine\n")
+	go m.sigTask()
 
+	m.cmdChan = make(chan string, 1024)
+	m.Log.Info("start task go routine\n")
+	go m.cmdTask()
+
+	m.exitChan = make(chan struct{})
 }
 
 // Start the server
 func (m *Server) Start() {
-
-	// go m.StartRecon()
-
-	// // listen bank
-	// go m.ListenBank()
-
-	// // exch hearbeat
-	// go m.ExchHeartbeat()
-
-	// // timer call
-	// go m.IomTimer()
-
-	// // control and trace
-	// go m.ControlTrace()
-
-	// // handle signal
-	// go m.HandleSignal()
-	// //<-m.ExitChan
+	m.cmdChan <- "listen"
+	m.cmdChan <- "connect"
 }
 
 // Stop the server
 func (m *Server) Stop() {
+
+}
+
+// Wait wait the server to stop
+func (m *Server) Wait() {
+	<-m.exitChan
 
 }
