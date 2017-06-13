@@ -1,12 +1,12 @@
 bindir=bin
-exe=yoyitd
+exe=yaodemall
 
-yoyitd_go=ioms/bank/yoyitd/main/ioms.go
+yaodemall=bank/yaodemall/*.go
 
 all:$(exe)
 
 
-yoyitd: $(yoyitd_go)
+yaodemall: $(yaodemall)
 	@echo "building $@"
-	go build -o $(bindir)/$@ $^
+	go build --ldflags '-extldflags "-static"' -o $(bindir)/$@ $^
 

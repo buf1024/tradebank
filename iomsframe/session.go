@@ -1,4 +1,4 @@
-package ioms
+package iomsframe
 
 type sesssionData struct {
 	SID        string

@@ -3,6 +3,9 @@ package proto
 import (
 	"fmt"
 
+	"bytes"
+	"encoding/binary"
+
 	"github.com/golang/protobuf/proto"
 )
 
@@ -192,89 +195,97 @@ const (
 
 type MessageHeader struct {
 	Version  uint32
-	Length   unit32
-	Command  unit32
-	Vender   unit32
-	Market   unit32
-	IsCkSum  unit32
-	CheckSum unit32
-	Extend   unit32
+	Length   uint32
+	Command  uint32
+	Vender   uint32
+	Market   uint32
+	IsCkSum  uint32
+	CheckSum uint32
+	Extend   uint32
 }
 
 func GetHeaderLength() int64 {
 	return PROTOCOL_HEADER_LENGTH
 }
 
-func IsPacketComplete(buf []byte) bool {
-	// if(len <= get_header_len())
-	// {
-	//     return 0;
-	// }
+func ParseHeader(buf []byte) (*MessageHeader, error) {
+	header := &MessageHeader{}
 
-	// message_head_t header;
-	// memset(&header, 0, sizeof(message_head_t));
+	start := 0
+	end := 4
+	offset := 4
 
-	// int ret = parse_header(buf, len, &header);
-	// if(0 != ret)
-	// {
-	//     return -1;
-	// }
+	head := buf[start:end]
+	reader := bytes.NewReader(head)
+	err := binary.Read(reader, binary.BigEndian, &header.Version)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
 
-	// if(len < header.length)
-	// {
-	//     return 0;
-	// }
-	// return header.length;
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.Length)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
 
-	return 0
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.Command)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
+
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.Vender)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
+
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.Market)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
+
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.IsCkSum)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
+
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.CheckSum)
+	if err != nil {
+		return nil, err
+	}
+	start = start + offset
+	end = offset + end
+
+	head = buf[start:end]
+	reader = bytes.NewReader(head)
+	err = binary.Read(reader, binary.BigEndian, &header.Extend)
+	if err != nil {
+		return nil, err
+	}
+	return header, nil
 }
-
-// int parse_header(const char* buf, int len, message_head_t* header)
-// {
-//     uint32_t version = 0;
-//     uint32_t length = 0;
-//     uint32_t command = 0;
-//     uint32_t vender_id = 0;
-//     uint32_t market = 0;
-//     uint32_t is_cksum = 0;
-//     uint32_t check_sum = 0;
-//     uint32_t extend = 0;
-
-//     int offset = 0;
-
-//     memcpy(&version, buf + offset, sizeof(uint32_t));
-//     header->version = ntohl(version);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&length, buf + offset, sizeof(uint32_t));
-//     header->length = ntohl(length);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&command, buf + offset, sizeof(uint32_t));
-//     header->command = ntohl(command);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&vender_id, buf + offset, sizeof(uint32_t));
-//     header->vender_id = ntohl(vender_id);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&market, buf + offset, sizeof(uint32_t));
-//     header->market = ntohl(market);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&is_cksum, buf + offset, sizeof(uint32_t));
-//     header->is_cksum = ntohl(is_cksum);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&check_sum, buf + offset, sizeof(uint32_t));
-//     header->check_sum = ntohl(check_sum);
-
-//     offset += sizeof(uint32_t);
-//     memcpy(&extend, buf + offset, sizeof(uint32_t));
-//     header->extend = ntohl(extend);
-
-//     return 0;
-// }
 
 var message map[int64]proto.Message
 
@@ -301,7 +312,60 @@ func Parse(command int64, buf []byte) (proto.Message, error) {
 func Serialize(msg proto.Message) ([]byte, error) {
 	return proto.Marshal(msg)
 }
+func SerializeHeader(header *MessageHeader) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.BigEndian, &header.Version); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &(header.Length)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &(header.Command)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &header.Vender); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &header.Market); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &header.IsCkSum); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &header.CheckSum); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, &header.Extend); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+func SerializeMessage(command int64, msg proto.Message, crypt bool) ([]byte, error) {
+	body, err := Serialize(msg)
+	if err != nil {
+		return nil, err
+	}
+	// todo 加密
 
+	header := &MessageHeader{}
+	header.Length = uint32(len(body)) + uint32(GetHeaderLength())
+	header.Command = uint32(command)
+
+	head, err := SerializeHeader(header)
+	if err != nil {
+		return nil, err
+	}
+
+	msgbuf := make([]byte, len(head)+len(body))
+	copy(msgbuf, head)
+	copy(msgbuf[len(head):], body)
+
+	return msgbuf, nil
+}
+func DebugHeader(header *MessageHeader) string {
+	return fmt.Sprintf("version: = %d, length: = %d, command:0x%x",
+		header.Version, header.Length, header.Command)
+}
 func Debug(command int64, msg proto.Message) string {
 	return fmt.Sprintf("command:0x%x %s", command, proto.CompactTextString(msg))
 }
