@@ -28,8 +28,8 @@ type fileLogger struct {
 func (f *fileLogger) logSwitch() error {
 	n := time.Now()
 	if f.file == nil {
-		f.fileName = fmt.Sprintf("%s_%d_%04d%02d%02d_%d.log.tmp",
-			f.Prefix, os.Getpid(), n.Year(), n.Month(), n.Day(), f.fileIndex)
+		f.fileName = fmt.Sprintf("%s%s_%d_%04d%02d%02d_%d.log.tmp",
+			f.FileDir, f.Prefix, os.Getpid(), n.Year(), n.Month(), n.Day(), f.fileIndex)
 		f.fileDate = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local).Unix()
 
 		var err error
