@@ -4,4 +4,5 @@ func main() {
 	svr := YaodeMallServer()
 	svr.InitServer()
 	svr.Start()
+
 }

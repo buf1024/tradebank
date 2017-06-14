@@ -294,7 +294,7 @@ func Message(command int64) (proto.Message, error) {
 		proto.Clone(m)
 		return m, nil
 	}
-	return nil, fmt.Errorf("mommand %d not found", command)
+	return nil, fmt.Errorf("command 0x%x not found", command)
 }
 
 func Parse(command int64, buf []byte) (proto.Message, error) {
@@ -463,84 +463,87 @@ func init() {
 		//////////////////////////////////////////////////////////////////////
 		// 交易系统与出入金服务交互
 		//////////////////////////////////////////////////////////////////////
-		message[CMD_E2B_SIGNINOUT_REQ] = & //0x11010001                    // 银行服务向银行签到/签退请求
-		message[CMD_E2B_SIGNINOUT_RSP] = & //0x11010002                    // 银行服务向银行签到/签退应答
-		message[CMD_E2B_ATTACH_ACCT_REQ] = & //0x11010003                  // 银行服务向银行签约请求
-		message[CMD_E2B_ATTACH_ACCT_RSP] = & //0x11010004                  // 银行服务向银行签约应答
-		message[CMD_E2B_DETACH_ACCT_REQ] = & //0x11010005                  // 银行服务向银行解约请求
-		message[CMD_E2B_DETACH_ACCT_RSP] = & //0x11010006                  // 银行服务向银行解约应答
-		message[CMD_E2B_IN_MONEY_REQ] = & //0x11010007                     // 银行服务向银行入金请求
-		message[CMD_E2B_IN_MONEY_RSP] = & //0x11010008                     // 银行服务向银行入金应答
-		message[CMD_E2B_OUT_MONEY_REQ] = & //0x11010009                    // 银行服务向银行出金请求
-		message[CMD_E2B_OUT_MONEY_RSP] = & //0x1101000A                    // 银行服务向银行出金应答
-		message[CMD_E2B_QUERY_BANK_MONEY_REQ] = & //0x1101000B             // 银行服务向银行查询余额请求
-		message[CMD_E2B_QUERY_BANK_MONEY_RSP] = & //0x1101000C             // 银行服务向银行查询余额入金应答
-		message[CMD_E2B_ADJUST_MONEY_REQ] = & //0x1101000D                 // 银行服务向银行冲正请求
-		message[CMD_E2B_ADJUST_MONEY_RSP] = & //0x1101000E                 // 银行服务向银行冲正应答
-		message[CMD_E2B_FILE_NOTIFICATION_REQ] = & //0x1101000F            // 银行服务向银行文件通知请求
-		message[CMD_E2B_FILE_NOTIFICATION_RSP] = & //0x11010010            // 银行服务向银行文件通知应答
-		message[CMD_E2B_UPDATE_USER_INFO_REQ] = & //0x11010011             // 银行服务向银行更新用户资料请求
-		message[CMD_E2B_UPDATE_USER_INFO_RSP] = & //0x11010012             // 银行服务向银行更新用户资料应答
-		message[CMD_E2B_QUERY_SIGN_STATUS_REQ] = & //0x11010013            // 银行服务向银行客户在银行签约状请求
-		message[CMD_E2B_QUERY_SIGN_STATUS_RSP] = & //0x11010014            // 银行服务向银行客户在银行签约状应答
-		message[CMD_E2B_OUT_MONEY_APPLICATION_RESULT_REQ] = & //0x11010015 // 出金审批申请结果请求 // 建行银行特殊流程
-		message[CMD_E2B_OUT_MONEY_APPLICATION_RESULT_RSP] = & //0x11010016 // 出金审批申请结果应答 // 建行银行特殊流程
-		message[CMD_E2B_CHECK_START_REQ] = & //0x11010017                  // 银行服务向银行对账开始请求
-		message[CMD_E2B_CHECK_START_RSP] = & //0x11010018                  // 银行服务向银行对账开始应答
-		message[CMD_E2B_CLEAR_REQ] = & //0x11010019                        // 银行服务向银行清算开始请求
-		message[CMD_E2B_CLEAR_RSP] = & //0x11010020                        // 银行服务向银行清算开始应答
-		message[CMD_E2B_PAY_FORWARD_REQ] = & //0x1101001B                  // 支付推进请求
-		message[CMD_E2B_PAY_FORWARD_RSP] = & //0x1101001C                  // 支付推进应答
+	*/
 
-		//////////////////////////////////////////////////////////////////////
-		// 出入金服务与交易系统交互
-		//////////////////////////////////////////////////////////////////////
-		message[CMD_B2E_ATTACH_ACCT_REQ] = & //0x11020001         // 银行向银行服务签约请求
-		message[CMD_B2E_ATTACH_ACCT_RSP] = & //0x11020002         // 银行向银行服务签约应答
-		message[CMD_B2E_DETACH_ACCT_REQ] = & //0x11020003         // 银行向银行服务解约请求
-		message[CMD_B2E_DETACH_ACCT_RSP] = & //0x11020004         // 银行向银行服务解约应答
-		message[CMD_B2E_IN_MONEY_REQ] = & //0x11020005            // 银行向银行服务入金请求
-		message[CMD_B2E_IN_MONEY_RSP] = & //0x11020006            // 银行向银行服务入金应答
-		message[CMD_B2E_OUT_MONEY_REQ] = & //0x11020007           // 银行向银行服务出金请求
-		message[CMD_B2E_OUT_MONEY_RSP] = & //0x11020008           // 银行向银行服务出金应答
-		message[CMD_B2E_QUERY_MONEY_REQ] = & //0x11020009         // 银行向银行服务查询余额请求
-		message[CMD_B2E_QUERY_MONEY_RSP] = & //0x1102000A         // 银行向银行服务查询余额应答
-		message[CMD_B2E_ADJUST_MONEY_REQ] = & //0x1102000B        // 银行向银行冲正请求
-		message[CMD_B2E_ADJUST_MONEY_RSP] = & //0x1102000C        // 银行向银行冲正应答
-		message[CMD_B2E_FILE_NOTIFICATION_REQ] = & //0x1102000D   // 银行向银行文件通知请求
-		message[CMD_B2E_FILE_NOTIFICATION_RSP] = & //0x1102000E   // 银行向银行文件通知应答
-		message[CMD_B2E_UPDATE_USER_INFO_REQ] = & //0x1102000F    // 银行向银行变更用户属性请求
-		message[CMD_B2E_UPDATE_USER_INFO_RSP] = & //0x11020010    // 银行向银行变更用户属性应答
-		message[CMD_B2E_QUERY_USER_PASSWORD_REQ] = & //0x11020011 // 银行端查询资金密码请求
-		message[CMD_B2E_QUERY_USER_PASSWORD_RSP] = & //0x11020012 // 银行端查询资金密码应答
+	message[CMD_E2B_SIGNINOUT_REQ] = &E2BSignInOutReq{} //0x11010001                    // 银行服务向银行签到/签退请求
+	message[CMD_E2B_SIGNINOUT_RSP] = &E2BSignInOutRsp{} //0x11010002                    // 银行服务向银行签到/签退应答
 
-		/////////////////////////////////////////////////////////////////////
-		// 建行银行特殊流程
-		/////////////////////////////////////////////////////////////////////
-		message[CMD_B2E_OUT_MONEY_APPLICATION_REQ] = & //0x11020013 // 出金审批申请请求
-		message[CMD_B2E_OUT_MONEY_APPLICATION_RSP] = & //0x11020014 // 出金审批申请应答
-		message[CMD_B2E_QUERY_OUT_MONEY_SID_REQ] = & //0x11020015   // 会员出金申请流水查询请求
-		message[CMD_B2E_QUERY_OUT_MONEY_SID_RSP] = & //0x11020016   // 会员出金申请流水查询应答
-		message[CMD_B2E_PUSH_USER_INFO_REQ] = & //0x11020017        // 会员信息推送请求
-		message[CMD_B2E_PUSH_USER_INFO_RSP] = & //0x11020018        // 会员信息推送应答
-		message[CMD_B2E_PUSH_INOUT_MONEY_INFO_REQ] = & //0x11020019 // 出入金推送请求
-		message[CMD_B2E_PUSH_INOUT_MONEY_INFO_RSP] = & //0x1102001A // 出入金推送应答
-		message[CMD_B2E_QUERY_USER_SIGN_INFO_REQ] = & //0x1102001B  // 会员签约信息查询请求
-		message[CMD_B2E_QUERY_USER_SIGN_INFO_RSP] = & //0x1102001C  // 会员签约信息查询应答
-		//////////////////////////////////////////////////////////////////////
+	/*message[CMD_E2B_ATTACH_ACCT_REQ] = & //0x11010003                  // 银行服务向银行签约请求
+	message[CMD_E2B_ATTACH_ACCT_RSP] = & //0x11010004                  // 银行服务向银行签约应答
+	message[CMD_E2B_DETACH_ACCT_REQ] = & //0x11010005                  // 银行服务向银行解约请求
+	message[CMD_E2B_DETACH_ACCT_RSP] = & //0x11010006                  // 银行服务向银行解约应答
+	message[CMD_E2B_IN_MONEY_REQ] = & //0x11010007                     // 银行服务向银行入金请求
+	message[CMD_E2B_IN_MONEY_RSP] = & //0x11010008                     // 银行服务向银行入金应答
+	message[CMD_E2B_OUT_MONEY_REQ] = & //0x11010009                    // 银行服务向银行出金请求
+	message[CMD_E2B_OUT_MONEY_RSP] = & //0x1101000A                    // 银行服务向银行出金应答
+	message[CMD_E2B_QUERY_BANK_MONEY_REQ] = & //0x1101000B             // 银行服务向银行查询余额请求
+	message[CMD_E2B_QUERY_BANK_MONEY_RSP] = & //0x1101000C             // 银行服务向银行查询余额入金应答
+	message[CMD_E2B_ADJUST_MONEY_REQ] = & //0x1101000D                 // 银行服务向银行冲正请求
+	message[CMD_E2B_ADJUST_MONEY_RSP] = & //0x1101000E                 // 银行服务向银行冲正应答
+	message[CMD_E2B_FILE_NOTIFICATION_REQ] = & //0x1101000F            // 银行服务向银行文件通知请求
+	message[CMD_E2B_FILE_NOTIFICATION_RSP] = & //0x11010010            // 银行服务向银行文件通知应答
+	message[CMD_E2B_UPDATE_USER_INFO_REQ] = & //0x11010011             // 银行服务向银行更新用户资料请求
+	message[CMD_E2B_UPDATE_USER_INFO_RSP] = & //0x11010012             // 银行服务向银行更新用户资料应答
+	message[CMD_E2B_QUERY_SIGN_STATUS_REQ] = & //0x11010013            // 银行服务向银行客户在银行签约状请求
+	message[CMD_E2B_QUERY_SIGN_STATUS_RSP] = & //0x11010014            // 银行服务向银行客户在银行签约状应答
+	message[CMD_E2B_OUT_MONEY_APPLICATION_RESULT_REQ] = & //0x11010015 // 出金审批申请结果请求 // 建行银行特殊流程
+	message[CMD_E2B_OUT_MONEY_APPLICATION_RESULT_RSP] = & //0x11010016 // 出金审批申请结果应答 // 建行银行特殊流程
+	message[CMD_E2B_CHECK_START_REQ] = & //0x11010017                  // 银行服务向银行对账开始请求
+	message[CMD_E2B_CHECK_START_RSP] = & //0x11010018                  // 银行服务向银行对账开始应答
+	message[CMD_E2B_CLEAR_REQ] = & //0x11010019                        // 银行服务向银行清算开始请求
+	message[CMD_E2B_CLEAR_RSP] = & //0x11010020                        // 银行服务向银行清算开始应答
+	message[CMD_E2B_PAY_FORWARD_REQ] = & //0x1101001B                  // 支付推进请求
+	message[CMD_E2B_PAY_FORWARD_RSP] = & //0x1101001C                  // 支付推进应答
 
-		message[CMD_B2E_CHECK_FILE_NOTIFICATION_REQ] = & //0x1102001D // 银行端对账文件获取结果请求
-		message[CMD_B2E_CHECK_FILE_NOTIFICATION_RSP] = & //0x1102001E // 银行端对账文件获取结果应答
+	//////////////////////////////////////////////////////////////////////
+	// 出入金服务与交易系统交互
+	//////////////////////////////////////////////////////////////////////
+	message[CMD_B2E_ATTACH_ACCT_REQ] = & //0x11020001         // 银行向银行服务签约请求
+	message[CMD_B2E_ATTACH_ACCT_RSP] = & //0x11020002         // 银行向银行服务签约应答
+	message[CMD_B2E_DETACH_ACCT_REQ] = & //0x11020003         // 银行向银行服务解约请求
+	message[CMD_B2E_DETACH_ACCT_RSP] = & //0x11020004         // 银行向银行服务解约应答
+	message[CMD_B2E_IN_MONEY_REQ] = & //0x11020005            // 银行向银行服务入金请求
+	message[CMD_B2E_IN_MONEY_RSP] = & //0x11020006            // 银行向银行服务入金应答
+	message[CMD_B2E_OUT_MONEY_REQ] = & //0x11020007           // 银行向银行服务出金请求
+	message[CMD_B2E_OUT_MONEY_RSP] = & //0x11020008           // 银行向银行服务出金应答
+	message[CMD_B2E_QUERY_MONEY_REQ] = & //0x11020009         // 银行向银行服务查询余额请求
+	message[CMD_B2E_QUERY_MONEY_RSP] = & //0x1102000A         // 银行向银行服务查询余额应答
+	message[CMD_B2E_ADJUST_MONEY_REQ] = & //0x1102000B        // 银行向银行冲正请求
+	message[CMD_B2E_ADJUST_MONEY_RSP] = & //0x1102000C        // 银行向银行冲正应答
+	message[CMD_B2E_FILE_NOTIFICATION_REQ] = & //0x1102000D   // 银行向银行文件通知请求
+	message[CMD_B2E_FILE_NOTIFICATION_RSP] = & //0x1102000E   // 银行向银行文件通知应答
+	message[CMD_B2E_UPDATE_USER_INFO_REQ] = & //0x1102000F    // 银行向银行变更用户属性请求
+	message[CMD_B2E_UPDATE_USER_INFO_RSP] = & //0x11020010    // 银行向银行变更用户属性应答
+	message[CMD_B2E_QUERY_USER_PASSWORD_REQ] = & //0x11020011 // 银行端查询资金密码请求
+	message[CMD_B2E_QUERY_USER_PASSWORD_RSP] = & //0x11020012 // 银行端查询资金密码应答
 
-		message[CMD_B2E_CLEAR_RESULT_REQ] = & //0x1102001F // 银行向银行服务通知清算结果请求
-		message[CMD_B2E_CLEAR_RESULT_RSP] = & //0x11020020 // 银行向银行服务通知清算结果应答
+	/////////////////////////////////////////////////////////////////////
+	// 建行银行特殊流程
+	/////////////////////////////////////////////////////////////////////
+	message[CMD_B2E_OUT_MONEY_APPLICATION_REQ] = & //0x11020013 // 出金审批申请请求
+	message[CMD_B2E_OUT_MONEY_APPLICATION_RSP] = & //0x11020014 // 出金审批申请应答
+	message[CMD_B2E_QUERY_OUT_MONEY_SID_REQ] = & //0x11020015   // 会员出金申请流水查询请求
+	message[CMD_B2E_QUERY_OUT_MONEY_SID_RSP] = & //0x11020016   // 会员出金申请流水查询应答
+	message[CMD_B2E_PUSH_USER_INFO_REQ] = & //0x11020017        // 会员信息推送请求
+	message[CMD_B2E_PUSH_USER_INFO_RSP] = & //0x11020018        // 会员信息推送应答
+	message[CMD_B2E_PUSH_INOUT_MONEY_INFO_REQ] = & //0x11020019 // 出入金推送请求
+	message[CMD_B2E_PUSH_INOUT_MONEY_INFO_RSP] = & //0x1102001A // 出入金推送应答
+	message[CMD_B2E_QUERY_USER_SIGN_INFO_REQ] = & //0x1102001B  // 会员签约信息查询请求
+	message[CMD_B2E_QUERY_USER_SIGN_INFO_RSP] = & //0x1102001C  // 会员签约信息查询应答
+	//////////////////////////////////////////////////////////////////////
 
-		message[CMD_B2E_SIGN_INFO_REQ] = & //0x11020021         // 银行向银行服务签约信息维护请求
-		message[CMD_B2E_SIGN_INFO_RSP] = & //0x11020022         // 银行向银行服务签约信息维护应答
-		message[CMD_B2E_SUBACCOUNT_ATTACH_REQ] = & //0x11020023 // 银行向银行服务子帐户签约请求
-		message[CMD_B2E_SUBACCOUNT_ATTACH_RSP] = & //0x11020024 // 银行向银行服务子帐户签约应答
-		message[CMD_B2E_INOUTNOTIFY_REQ] = & //0x11020025       // 银行端出入金推送  -- 网易宝请求
-		message[CMD_B2E_INOUTNOTIFY_RSP] = & //0x11020026       // 银行端出入金推送  -- 网易宝应答
+	message[CMD_B2E_CHECK_FILE_NOTIFICATION_REQ] = & //0x1102001D // 银行端对账文件获取结果请求
+	message[CMD_B2E_CHECK_FILE_NOTIFICATION_RSP] = & //0x1102001E // 银行端对账文件获取结果应答
+
+	message[CMD_B2E_CLEAR_RESULT_REQ] = & //0x1102001F // 银行向银行服务通知清算结果请求
+	message[CMD_B2E_CLEAR_RESULT_RSP] = & //0x11020020 // 银行向银行服务通知清算结果应答
+
+	message[CMD_B2E_SIGN_INFO_REQ] = & //0x11020021         // 银行向银行服务签约信息维护请求
+	message[CMD_B2E_SIGN_INFO_RSP] = & //0x11020022         // 银行向银行服务签约信息维护应答
+	message[CMD_B2E_SUBACCOUNT_ATTACH_REQ] = & //0x11020023 // 银行向银行服务子帐户签约请求
+	message[CMD_B2E_SUBACCOUNT_ATTACH_RSP] = & //0x11020024 // 银行向银行服务子帐户签约应答
+	message[CMD_B2E_INOUTNOTIFY_REQ] = & //0x11020025       // 银行端出入金推送  -- 网易宝请求
+	message[CMD_B2E_INOUTNOTIFY_RSP] = & //0x11020026       // 银行端出入金推送  -- 网易宝应答
 	*/
 	//////////////////////////////////////////////////////////////////////
 	// 与统一接入服务平台服务注册

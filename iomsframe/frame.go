@@ -102,13 +102,23 @@ func (m *ExchFrame) exchHandleRecv() {
 		var msg pb.Message
 		msg, err = proto.Parse(int64(head.Command), buf)
 		if err != nil {
-			m.Log.Error("parse message failed. err=%s\n", err)
-			break
+			m.Log.Error("parse message failed discard message. err=%s\n", err)
+			continue
+		}
+		if head.Command != proto.CMD_HEARTBEAT_REQ && head.Command != proto.CMD_HEARTBEAT_RSP {
+			m.Log.Info("RECV: %s\n", proto.Debug(int64(head.Command), msg))
 		}
 
-		m.Log.Info("RECV: %s\n", proto.Debug(int64(head.Command), msg))
+		if head.Command == proto.CMD_HEARTBEAT_REQ || head.Command == proto.CMD_SVR_REG_RSP {
+			m.HandleDef(int64(head.Command), msg)
+			continue
+		}
 
-		go m.Bank.ExchReq(int64(head.Command), msg)
+		if head.Command%2 == 0 {
+			go m.Bank.ExchRsp(int64(head.Command), msg)
+		} else {
+			go m.Bank.ExchReq(int64(head.Command), msg)
+		}
 	}
 	if err != nil {
 		m.exch.conStatus = false
@@ -129,13 +139,17 @@ END:
 					m.Log.Error("exch receive chan is close.\n")
 					break END
 				}
-				m.Log.Info("SEND: %s\n", proto.Debug(int64(msg.command), msg.pbmsg))
+				if msg.command != proto.CMD_HEARTBEAT_REQ && msg.command != proto.CMD_HEARTBEAT_RSP {
+					m.Log.Info("SEND: %s\n", proto.Debug(int64(msg.command), msg.pbmsg))
+				}
 				n, err := m.exch.conn.Write(msg.message)
 				if err != nil {
 					m.Log.Error("write msg failed, err=%s\n", err)
 					continue
 				}
-				m.Log.Info("write %d byte to exch, cmd=0x%x\n", n, msg.command)
+				if msg.command != proto.CMD_HEARTBEAT_REQ && msg.command != proto.CMD_HEARTBEAT_RSP {
+					m.Log.Info("write %d byte to exch, cmd=0x%x\n", n, msg.command)
+				}
 			}
 		}
 	}
@@ -201,6 +215,19 @@ func (m *ExchFrame) exchRegister() error {
 
 	return m.WriteMsg(proto.CMD_SVR_REG_REQ, req)
 
+}
+
+func (m *ExchFrame) MakeReq(command int64, msg pb.Message) error {
+	if command%2 == 0 {
+		command = command + 1
+	}
+	return m.WriteMsg(command, msg)
+}
+func (m *ExchFrame) MakeRsp(command int64, msg pb.Message) error {
+	if command%2 != 0 {
+		command = command + 1
+	}
+	return m.WriteMsg(command, msg)
 }
 
 func (m *ExchFrame) WriteMsg(command int64, msg pb.Message) error {
@@ -544,4 +571,50 @@ func (m *ExchFrame) loadConfig(path string) (*Config, error) {
 	c.TimeOutReconn = int64(i)
 
 	return c, nil
+}
+
+func (m *ExchFrame) HandleDef(command int64, msg pb.Message) error {
+	switch command {
+	case proto.CMD_HEARTBEAT_REQ:
+		{
+			req := msg.(*proto.HeartBeatReq)
+			rspMsg, err := proto.Message(proto.CMD_HEARTBEAT_RSP)
+			if err != nil {
+				m.Log.Critical("create message failed, ERR=%s\n", err.Error())
+				return err
+			}
+
+			rsp := rspMsg.(*proto.HeartBeatRsp)
+			rsp.SID = pb.String(req.GetSID())
+
+			m.MakeRsp(proto.CMD_HEARTBEAT_RSP, rsp)
+		}
+	case proto.CMD_SVR_REG_RSP:
+		{
+			m.exch.regStatus = true
+		}
+	case proto.CMD_E2B_SIGNINOUT_REQ:
+		{
+			req := msg.(*proto.E2BSignInOutReq)
+			rspMsg, err := proto.Message(proto.CMD_E2B_SIGNINOUT_RSP)
+			if err != nil {
+				m.Log.Critical("create message failed, ERR=%s\n", err.Error())
+				return err
+			}
+
+			rsp := rspMsg.(*proto.E2BSignInOutRsp)
+			rsp.ExchSID = pb.String(req.GetExchSID())
+			rsp.BankID = pb.Int32(req.GetBankID())
+			rsp.Type = pb.Int32(req.GetType())
+			rsp.RetCode = pb.Int32(int32(util.E_SUCCESS))
+			rsp.RetMsg = pb.String(util.GetErrMsg(util.E_SUCCESS))
+
+			m.MakeRsp(proto.CMD_E2B_SIGNINOUT_RSP, rsp)
+		}
+	}
+	return nil
+}
+
+func (m *ExchFrame) Ready() bool {
+	return m.exch.conStatus && m.exch.regStatus
 }

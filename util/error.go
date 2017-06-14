@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	E_SUCCESS = 99999 - iota
+	E_SUCCESS = 99999
 )
 
 type TradeError struct {
@@ -25,6 +25,10 @@ func NewError(code int64) TradeError {
 	e := TradeError{}
 	e.Code = code
 	return e
+}
+func GetErrMsg(code int64) string {
+	e := NewError(code)
+	return e.Error()
 }
 
 func init() {
