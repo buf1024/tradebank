@@ -9,34 +9,25 @@ import (
 	"tradebank/util"
 )
 
-type NocardPay struct {
+type NetbankPay struct {
 	mall *YaodeMall
 }
 
-type NocarPayReq struct {
-	mchKey      string
-	merId       string
-	orderId     string
-	transAmount string
-	cardByName  string
-	cardByNo    string
-	cerNumber   string
-	mobile      string
-}
-type NocardVerifyCodeReq struct {
-	mchKey       string
-	merId        string
-	yzm          string
-	ksPayOrderId string
-}
-type NocardQueryReq struct {
-	mchKey    string
-	merId     string
-	orderId   string
-	transDate string
+type NetbankPayReq struct {
+	mchKey        string
+	merId         string
+	orderId       string
+	transAmount   string
+	pageNotifyUrl string
+	backNotifyUrl string
 }
 
-type NocardRsp struct {
+type NetbankQueryReq struct {
+	mchKey  string
+	merId   string
+	orderId string
+}
+type NetbankReq struct {
 	status        string // 00：成功 01：失败 02：系统错误
 	orderId       string
 	ksPayOrderId  string
@@ -46,7 +37,17 @@ type NocardRsp struct {
 	refMsg        string
 }
 
-func (m *NocardPay) signReqData(v *PayUrlValues, key string) (string, error) {
+type NetbankRsp struct {
+	status        string // 00：成功 01：失败 02：系统错误
+	orderId       string
+	ksPayOrderId  string
+	chanelRefcode string // 89   要求手机验证码
+	bankOrderId   string
+	refCode       string // ‘00’交易成功 01’预交易成功 ‘02’交易失败 03  交易处理中
+	refMsg        string
+}
+
+func (m *NetbankPay) signReqData(v *PayUrlValues, key string) (string, error) {
 
 	signStr := v.Encode() + key
 	h := md5.New()
@@ -71,7 +72,7 @@ func (m *NocardPay) signReqData(v *PayUrlValues, key string) (string, error) {
 
 	return dstData, err
 }
-func (m *NocardPay) signCheckData(strData string, key string, md5val string) bool {
+func (m *NetbankPay) signCheckData(strData string, key string, md5val string) bool {
 	signStr := strData + key
 	h := md5.New()
 	md5sum := strings.ToUpper(hex.EncodeToString(h.Sum([]byte(signStr))))
@@ -82,7 +83,7 @@ func (m *NocardPay) signCheckData(strData string, key string, md5val string) boo
 	return true
 }
 
-func (m *NocardPay) MakePayReq(req *NocarPayReq) (string, error) {
+func (m *NetbankPay) MakePayReq(req *NocarPayReq) (string, error) {
 	//v := url.Values{}
 	v := PayUrlValues{}
 	v.Add("versionId", "001")
@@ -114,19 +115,7 @@ func (m *NocardPay) MakePayReq(req *NocarPayReq) (string, error) {
 	return m.signReqData(&v, req.mchKey)
 }
 
-func (m *NocardPay) MakeVerifyCodeReq(req *NocardVerifyCodeReq) (string, error) {
-	//v := url.Values{}
-	v := PayUrlValues{}
-	v.Add("versionId", "001")
-	v.Add("businessType", "1411")
-	//v.Add("insCode", "")
-	v.Add("merId", req.merId)
-	v.Add("yzm", req.yzm)
-	v.Add("ksPayOrderId", req.ksPayOrderId)
-
-	return m.signReqData(&v, req.mchKey)
-}
-func (m *NocardPay) MakeQueryReq(req *NocardQueryReq) (string, error) {
+func (m *NetbankPay) MakeQueryReq(req *NocardQueryReq) (string, error) {
 	//v := url.Values{}
 	v := PayUrlValues{}
 	v.Add("versionId", "001")
@@ -138,8 +127,10 @@ func (m *NocardPay) MakeQueryReq(req *NocardQueryReq) (string, error) {
 
 	return m.signReqData(&v, req.mchKey)
 }
-
-func (m *NocardPay) ParseRsp(rspStr string, key string) (*NocardRsp, error) {
+func (m *NetbankPay) ParseReq(rspStr string, key string) (*NetbankReq, error) {
+	return nil, nil
+}
+func (m *NetbankPay) ParseRsp(rspStr string, key string) (*NetbankRsp, error) {
 	m.mall.Log.Info("RSP(ENC):%s\n", rspStr)
 	decStr, err := NoCardPayEncrypt(rspStr, key)
 	if err != nil {
@@ -163,7 +154,7 @@ func (m *NocardPay) ParseRsp(rspStr string, key string) (*NocardRsp, error) {
 		return nil, err
 	}
 
-	rsp := &NocardRsp{
+	rsp := &NetbankRsp{
 		status:        v.Get("status"),
 		orderId:       v.Get("orderId"),
 		ksPayOrderId:  v.Get("ksPayOrderId"),

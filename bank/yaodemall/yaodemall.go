@@ -1,11 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"tradebank/iomsframe"
 
-	"github.com/golang/protobuf/proto"
+	"tradebank/proto"
+
+	"tradebank/util"
+
+	"net/url"
+
+	pb "github.com/golang/protobuf/proto"
 	ini "github.com/vaughan0/go-ini"
 )
 
@@ -20,6 +27,23 @@ type YaodeMall struct {
 	NocardMchNo   string
 	NocardMchKey  string
 	NocardReqHost string
+}
+
+type PayUrlValues struct {
+	buf bytes.Buffer
+}
+
+func (v *PayUrlValues) Add(key, val string) {
+	if v.buf.Len() > 0 {
+		v.buf.WriteByte('&')
+	}
+	v.buf.WriteString(url.QueryEscape(key))
+	v.buf.WriteByte('=')
+	v.buf.WriteString(url.QueryEscape(val))
+}
+func (v *PayUrlValues) Encode() string {
+
+	return v.buf.String()
 }
 
 func (b *YaodeMall) loadBankConf(path string) error {
@@ -81,10 +105,55 @@ func (b *YaodeMall) InitBank(m *iomsframe.ExchFrame) error {
 func (b *YaodeMall) StopBank(m *iomsframe.ExchFrame) {
 
 }
-func (b *YaodeMall) ExchReq(command int64, msg proto.Message) error {
-	return b.HandleDef(command, msg)
+func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
+	switch command {
+	case proto.CMD_E2B_IN_MONEY_REQ:
+		{
+			req := msg.(*proto.E2BInMoneyReq)
+			payway := util.GetSplitData(req.GetReversed(), "PAYWAY=")
+			if payway == "" {
+				b.Log.Warning("req missing payway. use the default one\n")
+				return b.nocard.HandleInMoney(req)
+			}
+			paywayNum, err := strconv.Atoi(payway)
+			if err != nil {
+				b.Log.Error("unknown payway, payway=%s\n", payway)
+				return err
+			}
+			switch paywayNum {
+			case iomsframe.PAYWAY_NOCARD:
+				{
+					return b.nocard.HandleInMoney(req)
+				}
+			default:
+				{
+					b.Log.Error("unknown payway, payway=%s\n", payway)
+					return fmt.Errorf("unknown payway, payway=%s", payway)
+				}
+			}
+		}
+	case proto.CMD_E2B_OUT_MONEY_REQ:
+		{
+
+		}
+	default:
+		{
+			return b.HandleDef(command, msg)
+		}
+	}
+	return nil
 }
-func (b *YaodeMall) ExchRsp(command int64, msg proto.Message) error {
+func (b *YaodeMall) ExchRsp(command int64, msg pb.Message) error {
+	switch command {
+	case proto.CMD_B2E_IN_MONEY_RSP:
+		{
+
+		}
+	default:
+		{
+			return b.HandleDef(command, msg)
+		}
+	}
 	return nil
 }
 

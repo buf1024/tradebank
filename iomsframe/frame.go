@@ -611,6 +611,10 @@ func (m *ExchFrame) HandleDef(command int64, msg pb.Message) error {
 
 			m.MakeRsp(proto.CMD_E2B_SIGNINOUT_RSP, rsp)
 		}
+	default:
+		{
+			m.Log.Warning("unknown command 0x%x, discard packet\n", command)
+		}
 	}
 	return nil
 }

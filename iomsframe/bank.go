@@ -4,6 +4,10 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+const (
+	PAYWAY_NOCARD = 1
+)
+
 // MyBank define the interface of exch
 type MyBank interface {
 	Name() string
