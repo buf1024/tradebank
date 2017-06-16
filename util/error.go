@@ -5,7 +5,9 @@ import (
 )
 
 const (
-	E_SUCCESS = 99999
+	E_SUCCESS      = 99999
+	E_BANK_ERR     = 15973
+	E_HALF_SUCCESS = 44444
 )
 
 type TradeError struct {

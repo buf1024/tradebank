@@ -12,11 +12,11 @@ package proto;
 //////////////////////////////////////////////////////////////////////
 // 心跳类
 //////////////////////////////////////////////////////////////////////
-// 心跳请求
+// 心跳请求 0x00010001
 message HeartBeatReq{
   required string SID = 1;
 }
-// 心跳回应
+// 心跳回应 0x00010002
 message HeartBeatRsp{
   required string SID = 1;
 }
@@ -1211,6 +1211,21 @@ message E2BClearingStartRsp{
   optional int32 UploadFileCount=7 [default = 0];
   repeated UploadFileInfo UploadInfo = 8;
 } 
+
+// 验证码请求 0x11010021
+message E2BVerifyCodeReq{
+  required string ExchSID = 1;
+  required int32 BankID = 2;
+  required string OrderID = 3;
+  required string VerifyCode = 4;
+}
+// 验证码回应 0x11010022
+message E2BVerifyCodeRsp{
+  required string ExchSID = 1;
+  optional string BankSID = 2;
+  required int32 BankID = 3;
+  required int32 RetCode = 4;
+}  
 
 
 // 出入金服务到交易系统 B2E

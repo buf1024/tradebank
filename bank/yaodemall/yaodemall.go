@@ -19,14 +19,12 @@ import (
 type YaodeMall struct {
 	iomsframe.ExchFrame
 
-	nocard *NocardPay
+	pay map[string]YaodePay
+	db  *YaodeMallDB
 
 	BankName string
 	BankID   int64
-	//no cardpay
-	NocardMchNo   string
-	NocardMchKey  string
-	NocardReqHost string
+	DBPath   string
 }
 
 type PayUrlValues struct {
@@ -70,18 +68,15 @@ func (b *YaodeMall) loadBankConf(path string) error {
 	}
 	b.BankID = int64(i)
 
-	//nocard pay
-	b.NocardMchNo, ok = f.Get("YDM", "NOCARDPAY_MCHNO")
+	b.DBPath, ok = f.Get("YDM", "DB_PATH")
 	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NOCARDPAY_MCHNO")
+		return fmt.Errorf("missing configure, sec=YDM, key=DB_PATH")
 	}
-	b.NocardMchKey, ok = f.Get("YDM", "NOCARPAY_MCHKEY")
-	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NOCARPAY_MCHKEY")
-	}
-	b.NocardReqHost, ok = f.Get("YDM", "NOCARPAY_PAYHOST")
-	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NOCARPAY_PAYHOST")
+
+	for _, v := range b.pay {
+		if err = v.Init(&f); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -100,6 +95,10 @@ func (b *YaodeMall) InitBank(m *iomsframe.ExchFrame) error {
 	if err != nil {
 		return err
 	}
+	err = b.db.Init(b.DBPath)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 func (b *YaodeMall) StopBank(m *iomsframe.ExchFrame) {
@@ -113,24 +112,19 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 			payway := util.GetSplitData(req.GetReversed(), "PAYWAY=")
 			if payway == "" {
 				b.Log.Warning("req missing payway. use the default one\n")
-				return b.nocard.HandleInMoney(req)
+				payway = "0"
 			}
 			paywayNum, err := strconv.Atoi(payway)
 			if err != nil {
 				b.Log.Error("unknown payway, payway=%s\n", payway)
 				return err
 			}
-			switch paywayNum {
-			case iomsframe.PAYWAY_NOCARD:
-				{
-					return b.nocard.HandleInMoney(req)
-				}
-			default:
-				{
-					b.Log.Error("unknown payway, payway=%s\n", payway)
-					return fmt.Errorf("unknown payway, payway=%s", payway)
-				}
+			pay := b.GetPay(iomsframe.BANK_INMONEY, paywayNum)
+			if pay == nil {
+				b.Log.Error("unknown payway, payway=%s\n", payway)
+				return fmt.Errorf("unknown payway, payway=%s", payway)
 			}
+			return pay.InMoneyReq(req)
 		}
 	case proto.CMD_E2B_OUT_MONEY_REQ:
 		{
@@ -156,14 +150,33 @@ func (b *YaodeMall) ExchRsp(command int64, msg pb.Message) error {
 	}
 	return nil
 }
+func (b *YaodeMall) AddPay(inout int, payway int, pay YaodePay) {
+	key := fmt.Sprintf("%d-%d", inout, payway)
+	b.pay[key] = pay
+}
+func (b *YaodeMall) GetPay(inout int, payway int) YaodePay {
+	key := fmt.Sprintf("%d-%d", inout, payway)
+
+	if v, exist := b.pay[key]; exist {
+		return v
+	}
+	return nil
+}
 
 // YaodeMallServer
 func YaodeMallServer() *YaodeMall {
-	m := &YaodeMall{}
-
+	m := &YaodeMall{
+		pay: make(map[string]YaodePay),
+		db:  &YaodeMallDB{},
+	}
 	m.Bank = m
-	m.nocard = &NocardPay{}
-	m.nocard.mall = m
+	m.db.mall = m
+
+	nocard := &NoCardPay{mall: m}
+	m.AddPay(iomsframe.BANK_INMONEY, iomsframe.PAYWAY_NOCARD, nocard)
+
+	netbank := &NetBankPay{mall: m}
+	m.AddPay(iomsframe.BANK_INMONEY, iomsframe.PAYWAY_NETBANK, netbank)
 
 	return m
 }

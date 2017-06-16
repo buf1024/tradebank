@@ -5,7 +5,14 @@ import (
 )
 
 const (
-	PAYWAY_NOCARD = 1
+	PAYWAY_DEFAULT = 0
+	PAYWAY_NOCARD  = 1
+	PAYWAY_NETBANK = 3
+)
+
+const (
+	BANK_OUTMONEY = 1
+	BANK_INMONEY  = 2
 )
 
 // MyBank define the interface of exch
