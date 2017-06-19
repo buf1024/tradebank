@@ -70,13 +70,6 @@ type ExchFrame struct {
 	Bank MyBank
 }
 
-const (
-	statusInited = iota
-	statusStarted
-	statusReady
-	statusStoped
-)
-
 func (m *ExchFrame) exchHandleRecv() {
 	err := error(nil)
 	for {

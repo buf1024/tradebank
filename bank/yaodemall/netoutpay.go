@@ -27,6 +27,37 @@ type NetOutPay struct {
 	NetOutReqHost    string
 }
 
+type TransBody struct {
+	OrderId     string `json:"orderId,omitempty"`
+	TransDate   string `json:"transDate,omitempty"`
+	TransAmount string `json:"transAmount,omitempty"`
+	AccNo       string `json:"accNo,omitempty"`
+	AccName     string `json:"accName,omitempty"`
+}
+
+type RespBody struct {
+	OrderId string `json:"orderId,omitempty"`
+	RefCode string `json:"refCode,omitempty"`
+	RefMsg  string `json:"refMsg,omitempty"`
+}
+
+func (n *NetOutPay) Encrypt(req *PayReq) (string, error) {
+	t := &TransBody{}
+	t.OrderId = req.orderId
+	t.TransDate = util.CurrentDate()
+	t.TransAmount = req.transAmount
+	t.AccNo = req.cardByNo
+	t.AccName = req.cardByName
+
+	js, err := json.Marshal(t)
+	if err != nil {
+		return "", nil
+	}
+	// encrypt todo
+	return string(js), nil
+
+}
+
 func (n *NetOutPay) loadConf(f *ini.File) error {
 	//netbank pay
 	ok := false
@@ -131,6 +162,7 @@ func (n *NetOutPay) GetExchCode(rsp *PayRsp) int32 {
 }
 func (n *NetOutPay) SignReqData(v *PayUrlValues, key string) (string, error) {
 
+	v.Add("signType", "MD5")
 	signStr := v.Encode() + key
 	h := md5.New()
 	h.Write([]byte(signStr))
@@ -145,18 +177,13 @@ func (n *NetOutPay) PayReq(req *PayReq) (string, error) {
 	//v := url.Values{}
 	v := PayUrlValues{}
 	v.Add("versionId", "001")
-	v.Add("businessType", "1100")
-	v.Add("insCode", "")
+	v.Add("businessType", "470000")
 	v.Add("merId", req.merId)
-	v.Add("orderId", req.orderId)
-	v.Add("transDate", util.CurrentDate())
-	v.Add("transAmount", req.transAmount)
-	v.Add("transCurrency", "156")
-	v.Add("transChanlName", "")
-	v.Add("openBankName", "")
-	v.Add("pageNotifyUrl", req.pageNotifyUrl)
-	v.Add("backNotifyUrl", req.backNotifyUrl)
-	v.Add("orderDesc", "")
+	tb, err := n.Encrypt(req)
+	if err != nil {
+		return "", err
+	}
+	v.Add("transBody", tb)
 	v.Add("dev", "")
 
 	return n.SignReqData(&v, req.mchKey)
