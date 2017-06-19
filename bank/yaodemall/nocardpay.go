@@ -19,12 +19,20 @@ import (
 	ini "github.com/vaughan0/go-ini"
 )
 
+const (
+	QUERYRESULT_RETRY_TIMES = 5
+)
+
 type NoCardPay struct {
 	mall *YaodeMall
 	//no cardpay
 	NocardMchNo   string
 	NocardMchKey  string
 	NocardReqHost string
+}
+type NoCardQueryResult struct {
+	extflow    string
+	retryTimes int64
 }
 
 func (m *NoCardPay) PKCS5Padding(ciphertext []byte, blockSize int) []byte {
@@ -174,11 +182,19 @@ func (m *NoCardPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	rsp := rspMsg.(*proto.E2BInMoneyRsp)
 	rsp.ExchSID = pb.String(req.GetExchSID())
 	rsp.BankID = pb.Int32(req.GetBankID())
-	rsp.RetCode = pb.Int32(m.GetExchCode(rspData))
+	rsp.RetCode = pb.Int32(util.E_BANK_ERR)
+	packSt, buzSt := m.GetExchCode(rspData)
+	if packSt == util.E_SUCCESS {
+		rsp.RetCode = pb.Int32(buzSt)
+	}
 	rsp.RetMsg = pb.String(rspData.refMsg)
 
 	if rsp.GetRetCode() == util.E_SUCCESS {
-		util.CallMeLater(m.mall.TimeOutReconn, m.CheckResult, dbData.extflow)
+		ctx := &NoCardQueryResult{
+			extflow:    dbData.extflow,
+			retryTimes: 0,
+		}
+		util.CallMeLater(m.mall.TimeOutReconn, m.CheckResult, ctx)
 	}
 
 	return m.mall.MakeRsp(proto.CMD_E2B_IN_MONEY_RSP, rsp)
@@ -191,8 +207,30 @@ func (m *NoCardPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
 	return nil
 }
 
-func (m *NoCardPay) CheckReq(orderId string) error {
-	return nil
+func (m *NoCardPay) CheckReq(orderId string) (int32, error) {
+	bankReq := &QueryReq{}
+	bankReq.merId = m.NocardMchNo
+	bankReq.orderId = orderId
+
+	bankMsg, err := m.QueryReq(bankReq)
+	if err != nil {
+		return 0, err
+	}
+	m.mall.Log.Info("POST REQ:\nURL=%s\n, DATA=%s\n", m.NocardReqHost, bankMsg)
+	bankRsp, err := util.PostData(m.NocardReqHost, []byte(bankMsg))
+	if err != nil {
+		return 0, err
+	}
+	m.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
+	rspData, err := m.ParseRsp(bankRsp)
+	if err != nil {
+		return 0, nil
+	}
+	packSt, buzSt := m.GetExchCode(rspData)
+	if packSt == util.E_SUCCESS {
+		return buzSt, nil
+	}
+	return 0, fmt.Errorf("packet state not success")
 
 }
 
@@ -270,17 +308,47 @@ func (m *NoCardPay) ParseRsp(rspStr []byte) (*PayRsp, error) {
 	}
 	return rsp, nil
 }
-func (m *NoCardPay) GetExchCode(rsp *PayRsp) int32 {
-	if rsp.status != "00" || rsp.refCode != "01" {
-		// 处理失败
-		return util.E_BANK_ERR
+
+func (m *NoCardPay) GetExchCode(rsp *PayRsp) (packStatus int32, buzStatus int32) {
+	packStatus = util.E_SUCCESS
+	buzStatus = 0
+	if rsp.status != "00" {
+		packStatus = util.E_BANK_ERR
+		return
 	}
-	if rsp.chanelRefcode == "89" {
-		// 需发送验证码
-		return util.E_HALF_SUCCESS
+	buzStatus = util.E_BANK_ERR
+	if rsp.refCode == "00" || rsp.refCode != "01" {
+		if rsp.chanelRefcode == "89" {
+			buzStatus = util.E_HALF_SUCCESS
+		} else {
+			buzStatus = util.E_SUCCESS
+		}
+	} else if rsp.refCode == "03" {
+		buzStatus = util.E_HALF_SUCCESS
 	}
-	return util.E_SUCCESS
+	return
 }
 
-func (m *NoCardPay) CheckResult(data interface{}) {
+func (m *NoCardPay) CheckResult(to int64, data interface{}) {
+	ctx := data.(*NoCardQueryResult)
+	if ctx.retryTimes < QUERYRESULT_RETRY_TIMES {
+		ctx.retryTimes++
+		m.mall.Log.Info("query result for sid=%s\n", ctx.extflow)
+		ret, err := m.CheckReq(ctx.extflow)
+		if err != nil {
+			m.mall.Log.Info("check req failed, err=%s\n", err)
+		} else {
+			if ret != util.E_HALF_SUCCESS {
+				err = m.mall.db.UpdateLog(ctx.extflow, int(ret), "")
+				if err != nil {
+					m.mall.Log.Error("update database error, err=%s\n", ctx.extflow)
+				}
+				return
+			}
+		}
+		util.CallMeLater(ctx.retryTimes*m.mall.TimeOutReconn, m.CheckResult, ctx)
+
+		return
+	}
+	m.mall.Log.Info("no result for sid = %s, query result in daily check.\n", ctx.extflow)
 }

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type CallMeFunc func(interface{})
+type CallMeFunc func(int64, interface{})
 
 func SID() string {
 	return fmt.Sprintf("SIM-%d-%d",
@@ -21,7 +21,7 @@ func CallMeLater(timeout int64, fun CallMeFunc, data interface{}) {
 	t := time.NewTimer((time.Duration)((int64)(time.Second) * timeout))
 	<-t.C
 
-	fun(data)
+	fun(timeout, data)
 }
 func CurrentDate() string {
 	t := time.Now()

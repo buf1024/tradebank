@@ -12,6 +12,8 @@ import (
 
 	"net/url"
 
+	"sync"
+
 	pb "github.com/golang/protobuf/proto"
 	ini "github.com/vaughan0/go-ini"
 )
@@ -167,7 +169,7 @@ func (b *YaodeMall) GetPay(inout int, payway int) YaodePay {
 func YaodeMallServer() *YaodeMall {
 	m := &YaodeMall{
 		pay: make(map[string]YaodePay),
-		db:  &YaodeMallDB{},
+		db:  &YaodeMallDB{lock: &sync.Mutex{}},
 	}
 	m.Bank = m
 	m.db.mall = m

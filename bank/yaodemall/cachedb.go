@@ -4,12 +4,15 @@ import (
 	"database/sql"
 	"time"
 
+	"sync"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type YaodeMallDB struct {
 	mall *YaodeMall
 	db   *sql.DB
+	lock sync.Locker
 }
 
 type InoutLog struct {
@@ -56,11 +59,14 @@ func (y *YaodeMallDB) Init(file string) error {
 
 }
 func (y *YaodeMallDB) Close() {
+	y.lock.Lock()
+	defer y.lock.Unlock()
 	y.db.Close()
 }
 
 func (y *YaodeMallDB) QueryCheckLog(operatetime int64) ([]InoutLog, error) {
-
+	y.lock.Lock()
+	defer y.lock.Unlock()
 	y.mall.Log.Debug("QueryLog, t=%d\n", operatetime)
 	rows, err := y.db.Query("select extflow, type, amount, status, operatetime, checkdate from inout_log where operatetime <= ?",
 		operatetime)
@@ -85,6 +91,8 @@ func (y *YaodeMallDB) QueryCheckLog(operatetime int64) ([]InoutLog, error) {
 }
 
 func (y *YaodeMallDB) InsertLog(lg InoutLog) error {
+	y.lock.Lock()
+	defer y.lock.Unlock()
 	t := time.Now()
 	now := t.Unix()
 	now += time19701900
@@ -99,7 +107,8 @@ func (y *YaodeMallDB) InsertLog(lg InoutLog) error {
 	return err
 }
 func (y *YaodeMallDB) UpdateLog(extflow string, status int, checkdate string) error {
-
+	y.lock.Lock()
+	defer y.lock.Unlock()
 	_, err := y.db.Exec("update inout_log set status = ?, checkdate = ? where extflow = ?",
 		status, checkdate, extflow)
 	if err != nil {

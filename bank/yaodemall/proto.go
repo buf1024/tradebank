@@ -13,7 +13,7 @@ type YaodePay interface {
 	OutMoneyReq(req *proto.E2BOutMoneyReq) error
 	VerifyReq(req *proto.E2BVerifyCodeReq) error
 
-	CheckReq(orderId string) error
+	CheckReq(orderId string) (int32, error)
 }
 
 type PayReq struct {

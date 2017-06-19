@@ -158,8 +158,11 @@ func (n *NetBankPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
 
 }
 
-func (n *NetBankPay) CheckReq(orderId string) error {
-	return nil
+func (n *NetBankPay) CheckReq(orderId string) (int32, error) {
+	return 0, nil
+}
+func (n *NetBankPay) GetExchCode(rsp *PayRsp) int32 {
+	return 0
 }
 func (n *NetBankPay) SignReqData(v *PayUrlValues, key string) (string, error) {
 
