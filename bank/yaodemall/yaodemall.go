@@ -10,8 +10,6 @@ import (
 
 	"tradebank/util"
 
-	"net/url"
-
 	"sync"
 
 	pb "github.com/golang/protobuf/proto"
@@ -37,9 +35,9 @@ func (v *PayUrlValues) Add(key, val string) {
 	if v.buf.Len() > 0 {
 		v.buf.WriteByte('&')
 	}
-	v.buf.WriteString(url.QueryEscape(key))
+	v.buf.WriteString(key)
 	v.buf.WriteByte('=')
-	v.buf.WriteString(url.QueryEscape(val))
+	v.buf.WriteString(val)
 }
 func (v *PayUrlValues) Encode() string {
 
@@ -141,6 +139,10 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 }
 func (b *YaodeMall) ExchRsp(command int64, msg pb.Message) error {
 	switch command {
+	case proto.CMD_B2E_IN_MONEY_RSP:
+		{
+
+		}
 	case proto.CMD_B2E_IN_MONEY_RSP:
 		{
 

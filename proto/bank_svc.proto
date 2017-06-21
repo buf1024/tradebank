@@ -78,7 +78,6 @@ message E2EOfflineChangeAcctMoneyRsp
 
 
 // 单边账调整请求  0x07010005 
-
 message  E2EChangeOneSideAccountReq{
   required string SID = 1;
   required int32 UserId = 2;
@@ -936,7 +935,26 @@ message E2EClearResultQueryRsp
   repeated ClearResultQueryGroup ClearResultQueryList = 7;
 }
 
-
+// 验证码请求 0x0F0E0023
+message E2EVerifyCodeReq{
+  required string SID = 1;
+  required int32 LoginId = 2;
+  required int32 CustomerId = 3;
+  required int32 UserId = 4;
+  required int32 MemberId = 5;
+  required int32 BankId = 6;
+  required string OrderID = 7;
+  required string VerifyCode = 8;
+}
+// 验证码回应 0x0F0E0024
+message E2EVerifyCodeRsp{
+  required int32 RetCode = 1;
+  required string SID = 2;
+  required int32 LoginId = 3;
+  required int32 CustomerId = 4;
+  required int32 UserId = 5;
+  required int32 MemberId = 6;;
+}
 
 // 交易系统到出入金服务 E2B
 //////////////////////////////////////////////////////////////////////

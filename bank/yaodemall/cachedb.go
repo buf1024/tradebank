@@ -24,7 +24,7 @@ type InoutLog struct {
 	checkdate   string
 }
 
-const time19701900 = 2208988800
+const time19701900 = 2208988800000000
 
 func (y *YaodeMallDB) Init(file string) error {
 	sqlStr := `
@@ -94,9 +94,9 @@ func (y *YaodeMallDB) InsertLog(lg InoutLog) error {
 	y.lock.Lock()
 	defer y.lock.Unlock()
 	t := time.Now()
-	now := t.Unix()
-	now += time19701900
-	now *= 1000000
+	t = t.UTC()
+	now := t.UnixNano()/int64(1000) + time19701900
+	y.mall.Log.Debug("now->%d\n", now)
 
 	_, err := y.db.Exec("insert into inout_log(extflow, type, amount, status, operatetime, checkdate) values(?, ?, ?, ?, ?, ?)",
 		lg.extflow, lg.iotype, lg.amount, 0, now, "")

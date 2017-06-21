@@ -1,6 +1,9 @@
 package util
 
-import ()
+import (
+	"fmt"
+	"math"
+)
 
 type Crypt struct {
 }
@@ -11,6 +14,11 @@ func NewCrypt() *Crypt {
 	return c
 }
 
+func (c *Crypt) getDBKey() string {
+	s := math.Sqrt(17.0)
+	return fmt.Sprintf("%.22f", s)
+}
+
 func (c *Crypt) PacketEncrypt(buf []byte) ([]byte, error) {
 	return buf, nil
 }
@@ -19,18 +27,18 @@ func (c *Crypt) PacketDecrypt(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func (c *Crypt) PasswordEncrypt(buf []byte) ([]byte, error) {
+func (c *Crypt) PswEncrypt(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func (c *Crypt) PasswordDecrypt(buf []byte) ([]byte, error) {
+func (c *Crypt) PswDecrypt(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func (c *Crypt) DBStringEncrypt(buf []byte) ([]byte, error) {
+func (c *Crypt) DBDecrypt(buf string) (string, error) {
 	return buf, nil
 }
 
-func (c *Crypt) DBStringDecrypt(buf []byte) ([]byte, error) {
+func (c *Crypt) DBEncrypt(buf string) (string, error) {
 	return buf, nil
 }

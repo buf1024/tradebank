@@ -32,6 +32,9 @@ type NoCardPay struct {
 }
 type NoCardQueryResult struct {
 	extflow    string
+	orderId    string
+	amount     string
+	bankacct   string
 	retryTimes int64
 }
 
@@ -173,7 +176,7 @@ func (m *NoCardPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	m.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
 	rspData, err := m.ParseRsp(bankRsp)
 	if err != nil {
-		return nil
+		return err
 	}
 	rspMsg, err := proto.Message(proto.CMD_E2B_IN_MONEY_RSP)
 	if err != nil {
@@ -192,6 +195,8 @@ func (m *NoCardPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	if rsp.GetRetCode() == util.E_SUCCESS {
 		ctx := &NoCardQueryResult{
 			extflow:    dbData.extflow,
+			orderId:    rspData.orderId,
+			amount:     bankReq.transAmount,
 			retryTimes: 0,
 		}
 		util.CallMeLater(m.mall.TimeOutReconn, m.CheckResult, ctx)
@@ -210,6 +215,7 @@ func (m *NoCardPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
 func (m *NoCardPay) CheckReq(orderId string) (int32, error) {
 	bankReq := &QueryReq{}
 	bankReq.merId = m.NocardMchNo
+	bankReq.mchKey = m.NocardMchKey
 	bankReq.orderId = orderId
 
 	bankMsg, err := m.QueryReq(bankReq)
@@ -297,14 +303,27 @@ func (m *NoCardPay) ParseRsp(rspStr []byte) (*PayRsp, error) {
 	if err != nil {
 		return nil, err
 	}
-	rsp := &PayRsp{
-		status:        v["status"].(string),
-		orderId:       v["orderId"].(string),
-		ksPayOrderId:  v["ksPayOrderId"].(string),
-		chanelRefcode: v["chanelRefcode"].(string),
-		bankOrderId:   v["bankOrderId"].(string),
-		refCode:       v["refCode"].(string),
-		refMsg:        v["refMsg"].(string),
+	rsp := &PayRsp{}
+	if t, exists := v["status"]; exists {
+		rsp.status, _ = t.(string)
+	}
+	if t, exists := v["orderId"]; exists {
+		rsp.orderId, _ = t.(string)
+	}
+	if t, exists := v["ksPayOrderId"]; exists {
+		rsp.ksPayOrderId, _ = t.(string)
+	}
+	if t, exists := v["chanelRefcode"]; exists {
+		rsp.chanelRefcode, _ = t.(string)
+	}
+	if t, exists := v["bankOrderId"]; exists {
+		rsp.bankOrderId, _ = t.(string)
+	}
+	if t, exists := v["refCode"]; exists {
+		rsp.refCode, _ = t.(string)
+	}
+	if t, exists := v["refMsg"]; exists {
+		rsp.refMsg, _ = t.(string)
 	}
 	return rsp, nil
 }
@@ -317,7 +336,7 @@ func (m *NoCardPay) GetExchCode(rsp *PayRsp) (packStatus int32, buzStatus int32)
 		return
 	}
 	buzStatus = util.E_BANK_ERR
-	if rsp.refCode == "00" || rsp.refCode != "01" {
+	if rsp.refCode == "00" || rsp.refCode == "01" {
 		if rsp.chanelRefcode == "89" {
 			buzStatus = util.E_HALF_SUCCESS
 		} else {
@@ -332,6 +351,7 @@ func (m *NoCardPay) GetExchCode(rsp *PayRsp) (packStatus int32, buzStatus int32)
 func (m *NoCardPay) CheckResult(to int64, data interface{}) {
 	ctx := data.(*NoCardQueryResult)
 	if ctx.retryTimes < QUERYRESULT_RETRY_TIMES {
+		m.mall.Log.Debug("query result, extflow=%s\n", ctx.extflow)
 		ctx.retryTimes++
 		m.mall.Log.Info("query result for sid=%s\n", ctx.extflow)
 		ret, err := m.CheckReq(ctx.extflow)
@@ -342,7 +362,28 @@ func (m *NoCardPay) CheckResult(to int64, data interface{}) {
 				err = m.mall.db.UpdateLog(ctx.extflow, int(ret), "")
 				if err != nil {
 					m.mall.Log.Error("update database error, err=%s\n", ctx.extflow)
+					return
 				}
+
+				reqMsg, err := proto.Message(proto.CMD_B2E_INOUTNOTIFY_REQ)
+				if err != nil {
+					m.mall.Log.Info("proto.message error: %s\n", err)
+					return
+				}
+				req := reqMsg.(*proto.B2EInOutNotifyReq)
+				req.BankAcct = pb.String(ctx.bankacct)
+				req.BankId = pb.Int32(int32(m.mall.BankID))
+				req.BankSID = pb.String(ctx.orderId)
+				req.Currency = pb.Int32(1)
+				req.ExchSID = pb.String(ctx.extflow)
+				req.Status = pb.Int32(ret)
+				req.RetMsg = pb.String(util.GetErrMsg(int64(ret)))
+				m.mall.Log.Info("query result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
+
+				m.mall.MakeRsp(proto.CMD_B2E_INOUTNOTIFY_REQ, req)
+
+				// insert session
+
 				return
 			}
 		}

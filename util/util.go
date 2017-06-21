@@ -18,10 +18,12 @@ func SID() string {
 }
 
 func CallMeLater(timeout int64, fun CallMeFunc, data interface{}) {
-	t := time.NewTimer((time.Duration)((int64)(time.Second) * timeout))
-	<-t.C
+	go func() {
+		t := time.NewTimer((time.Duration)((int64)(time.Second) * timeout))
+		<-t.C
 
-	fun(timeout, data)
+		fun(timeout, data)
+	}()
 }
 func CurrentDate() string {
 	t := time.Now()
@@ -51,6 +53,7 @@ func PostData(url string, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Add("User-agent", "Revenco Dream Die HTTP Client")
+	req.Header.Add("Content-type", "application/x-www-form-urlencoded")
 	client := http.Client{}
 	rsp, err := client.Do(req)
 	if err != nil {
