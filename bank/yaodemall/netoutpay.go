@@ -2,9 +2,12 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
+	"io/ioutil"
 	"strings"
 	"tradebank/iomsframe"
 	"tradebank/proto"
@@ -12,6 +15,9 @@ import (
 
 	"fmt"
 
+	"crypto/rsa"
+
+	myrsa "github.com/buf1024/golib/crypt"
 	pb "github.com/golang/protobuf/proto"
 	ini "github.com/vaughan0/go-ini"
 )
@@ -25,6 +31,9 @@ type NetOutPay struct {
 	NetOutPublicKey  string
 	NetOutPrivateKey string
 	NetOutReqHost    string
+
+	pub   *rsa.PublicKey
+	privt *rsa.PrivateKey
 }
 
 type TransBody struct {
@@ -42,6 +51,7 @@ type RespBody struct {
 }
 
 func (n *NetOutPay) Encrypt(req *PayReq) (string, error) {
+
 	t := &TransBody{}
 	t.OrderId = req.orderId
 	t.TransDate = util.CurrentDate()
@@ -53,9 +63,19 @@ func (n *NetOutPay) Encrypt(req *PayReq) (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	// encrypt todo
-	return string(js), nil
+	encJS, err := myrsa.PrivateEncrypt(n.privt, js)
+	if err != nil {
+		return "", nil
+	}
+	return string(encJS), nil
 
+}
+func (n *NetOutPay) Decrypt(data []byte) (string, error) {
+	decData, err := myrsa.PublicDecrypt(n.pub, data)
+	if err != nil {
+		return "", err
+	}
+	return string(decData), nil
 }
 
 func (n *NetOutPay) loadConf(f *ini.File) error {
@@ -77,6 +97,9 @@ func (n *NetOutPay) loadConf(f *ini.File) error {
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_PRIVITE_KEY")
 	}
+	if err := n.loadRSAkeys(n.NetOutPublicKey, n.NetOutPrivateKey); err != nil {
+		return err
+	}
 	n.NetOutReqHost, ok = f.Get("YDM", "NETOUTPAY_PAYHOST")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_PAYHOST")
@@ -84,6 +107,40 @@ func (n *NetOutPay) loadConf(f *ini.File) error {
 
 	return nil
 
+}
+func (n *NetOutPay) loadRSAkeys(public string, private string) error {
+	// load private key
+	bs, err := ioutil.ReadFile(private)
+	if err != nil {
+		return err
+	}
+	block, _ := pem.Decode(bs)
+	if block == nil {
+		return fmt.Errorf("decode private key failed")
+	}
+	n.privt, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return err
+	}
+	// load public key
+	bs, err = ioutil.ReadFile(public)
+	if err != nil {
+		return err
+	}
+	block, _ = pem.Decode(bs)
+	if block == nil {
+		return fmt.Errorf("decode certifacte key failed")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return err
+	}
+	ok := false
+	n.pub, ok = cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("convert to public key failed")
+	}
+	return nil
 }
 
 func (n *NetOutPay) Init(f *ini.File) error {

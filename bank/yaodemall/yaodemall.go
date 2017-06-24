@@ -143,7 +143,7 @@ func (b *YaodeMall) ExchRsp(command int64, msg pb.Message) error {
 		{
 
 		}
-	case proto.CMD_B2E_IN_MONEY_RSP:
+	case proto.CMD_B2E_INOUTNOTIFY_RSP:
 		{
 
 		}
