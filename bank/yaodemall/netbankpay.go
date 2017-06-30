@@ -155,7 +155,6 @@ func (n *NetBankPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
 }
 func (n *NetBankPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
 	return fmt.Errorf("not surport verify code")
-
 }
 
 func (n *NetBankPay) CheckReq(orderId string) (int32, error) {
@@ -181,18 +180,18 @@ func (n *NetBankPay) PayReq(req *PayReq) (string, error) {
 	v := PayUrlValues{}
 	v.Add("versionId", "001")
 	v.Add("businessType", "1100")
-	v.Add("insCode", "")
+	//v.Add("insCode", "")
 	v.Add("merId", req.merId)
 	v.Add("orderId", req.orderId)
 	v.Add("transDate", util.CurrentDate())
 	v.Add("transAmount", req.transAmount)
 	v.Add("transCurrency", "156")
-	v.Add("transChanlName", "")
-	v.Add("openBankName", "")
+	//v.Add("transChanlName", "")
+	//v.Add("openBankName", "")
 	v.Add("pageNotifyUrl", req.pageNotifyUrl)
 	v.Add("backNotifyUrl", req.backNotifyUrl)
-	v.Add("orderDesc", "")
-	v.Add("dev", "")
+	//v.Add("orderDesc", "")
+	//v.Add("dev", "")
 
 	return n.SignReqData(&v, req.mchKey)
 }

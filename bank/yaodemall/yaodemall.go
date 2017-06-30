@@ -128,7 +128,35 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 		}
 	case proto.CMD_E2B_OUT_MONEY_REQ:
 		{
+			pay := b.GetPay(iomsframe.BANK_OUTMONEY, 0)
+			if pay == nil {
+				return fmt.Errorf("not support out money req")
+			}
+			req := msg.(*proto.E2BOutMoneyReq)
+			return pay.OutMoneyReq(req)
+		}
+	case proto.CMD_E2B_CHECK_START_REQ:
+		{
+			req := msg.(*proto.E2BCheckStartReq)
 
+			rspMsg, err := proto.Message(proto.CMD_E2B_CHECK_START_RSP)
+			if err != nil {
+				b.Log.Critical("create message failed, ERR=%s\n", err.Error())
+				return err
+			}
+
+			rsp := rspMsg.(*proto.E2BCheckStartRsp)
+			rsp.BankID = pb.Int32(req.GetBankID())
+			rsp.ExchSID = pb.String(req.GetExchSID())
+			rsp.RetCode = pb.Int32(util.E_SUCCESS)
+
+			err = b.MakeRsp(proto.CMD_E2B_CHECK_START_RSP, rsp)
+			if err != nil {
+				b.Log.Critical("MakeRsp failed, ERR=%s\n", err.Error())
+				return err
+			}
+
+			//b.db.QueryCheckLog()
 		}
 	default:
 		{
@@ -139,11 +167,11 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 }
 func (b *YaodeMall) ExchRsp(command int64, msg pb.Message) error {
 	switch command {
-	case proto.CMD_B2E_IN_MONEY_RSP:
+	case proto.CMD_B2E_INOUTNOTIFY_RSP:
 		{
 
 		}
-	case proto.CMD_B2E_INOUTNOTIFY_RSP:
+	case proto.CMD_B2E_CHECK_FILE_NOTIFICATION_RSP:
 		{
 
 		}

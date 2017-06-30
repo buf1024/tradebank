@@ -1,6 +1,8 @@
 package iomsframe
 
 import (
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 )
 
@@ -25,4 +27,19 @@ type MyBank interface {
 
 	InitBank(m *ExchFrame) error
 	StopBank(m *ExchFrame)
+}
+
+type CheckFile struct {
+	n    int
+	lock sync.Locker
+	path string
+}
+type CheckItem struct {
+}
+
+func NewCheckFile(path string) *CheckFile {
+	return nil
+}
+func (f *CheckFile) Append(item *CheckItem) int {
+	return 0
 }

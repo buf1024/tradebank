@@ -19,23 +19,12 @@ import (
 	ini "github.com/vaughan0/go-ini"
 )
 
-const (
-	QUERYRESULT_RETRY_TIMES = 5
-)
-
 type NoCardPay struct {
 	mall *YaodeMall
 	//no cardpay
 	NocardMchNo   string
 	NocardMchKey  string
 	NocardReqHost string
-}
-type NoCardQueryResult struct {
-	extflow    string
-	orderId    string
-	amount     string
-	bankacct   string
-	retryTimes int64
 }
 
 func (m *NoCardPay) PKCS5Padding(ciphertext []byte, blockSize int) []byte {
@@ -193,7 +182,7 @@ func (m *NoCardPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	rsp.RetMsg = pb.String(rspData.refMsg)
 
 	if rsp.GetRetCode() == util.E_SUCCESS {
-		ctx := &NoCardQueryResult{
+		ctx := &QueryResultContext{
 			extflow:    dbData.extflow,
 			orderId:    rspData.orderId,
 			amount:     bankReq.transAmount,
@@ -230,7 +219,7 @@ func (m *NoCardPay) CheckReq(orderId string) (int32, error) {
 	m.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
 	rspData, err := m.ParseRsp(bankRsp)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	packSt, buzSt := m.GetExchCode(rspData)
 	if packSt == util.E_SUCCESS {
@@ -349,11 +338,11 @@ func (m *NoCardPay) GetExchCode(rsp *PayRsp) (packStatus int32, buzStatus int32)
 }
 
 func (m *NoCardPay) CheckResult(to int64, data interface{}) {
-	ctx := data.(*NoCardQueryResult)
+	ctx := data.(*QueryResultContext)
 	if ctx.retryTimes < QUERYRESULT_RETRY_TIMES {
-		m.mall.Log.Debug("query result, extflow=%s\n", ctx.extflow)
+		m.mall.Log.Debug("query in money result, extflow=%s\n", ctx.extflow)
 		ctx.retryTimes++
-		m.mall.Log.Info("query result for sid=%s\n", ctx.extflow)
+		m.mall.Log.Info("query in money result for sid=%s\n", ctx.extflow)
 		ret, err := m.CheckReq(ctx.extflow)
 		if err != nil {
 			m.mall.Log.Info("check req failed, err=%s\n", err)
@@ -371,6 +360,8 @@ func (m *NoCardPay) CheckResult(to int64, data interface{}) {
 					return
 				}
 				req := reqMsg.(*proto.B2EInOutNotifyReq)
+
+				req.TransType = pb.Int32(iomsframe.BANK_OUTMONEY)
 				req.BankAcct = pb.String(ctx.bankacct)
 				req.BankId = pb.Int32(int32(m.mall.BankID))
 				req.BankSID = pb.String(ctx.orderId)
@@ -378,7 +369,7 @@ func (m *NoCardPay) CheckResult(to int64, data interface{}) {
 				req.ExchSID = pb.String(ctx.extflow)
 				req.Status = pb.Int32(ret)
 				req.RetMsg = pb.String(util.GetErrMsg(int64(ret)))
-				m.mall.Log.Info("query result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
+				m.mall.Log.Info("query in money result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
 
 				m.mall.MakeRsp(proto.CMD_B2E_INOUTNOTIFY_REQ, req)
 

@@ -22,6 +22,7 @@ type InoutLog struct {
 	status      int
 	operatetime int64
 	checkdate   string
+	payway      int
 }
 
 const time19701900 = 2208988800000000
@@ -35,7 +36,8 @@ func (y *YaodeMallDB) Init(file string) error {
 		amount number(16, 4) not null,
 		status number(8, 0) not null,
 		operatetime number(20, 0) not null,
-		checkdate varchar(32) not null
+		checkdate varchar(32) not null,
+		payway number(8, 0)
 	);
 	commit;
 	`
@@ -68,7 +70,7 @@ func (y *YaodeMallDB) QueryCheckLog(operatetime int64) ([]InoutLog, error) {
 	y.lock.Lock()
 	defer y.lock.Unlock()
 	y.mall.Log.Debug("QueryLog, t=%d\n", operatetime)
-	rows, err := y.db.Query("select extflow, type, amount, status, operatetime, checkdate from inout_log where operatetime <= ?",
+	rows, err := y.db.Query("select extflow, type, amount, status, operatetime, checkdate, payway from inout_log where operatetime <= ?",
 		operatetime)
 
 	if err != nil {
@@ -80,7 +82,7 @@ func (y *YaodeMallDB) QueryCheckLog(operatetime int64) ([]InoutLog, error) {
 
 	for rows.Next() {
 		var tmpRes InoutLog
-		if err := rows.Scan(&tmpRes.extflow, &tmpRes.iotype, &tmpRes.amount, &tmpRes.status, &tmpRes.operatetime, &tmpRes.checkdate); err != nil {
+		if err := rows.Scan(&tmpRes.extflow, &tmpRes.iotype, &tmpRes.amount, &tmpRes.status, &tmpRes.operatetime, &tmpRes.checkdate, &tmpRes.payway); err != nil {
 			y.mall.Log.Error("Scan error =  %s\n", err)
 			return nil, nil
 		}
@@ -98,8 +100,8 @@ func (y *YaodeMallDB) InsertLog(lg InoutLog) error {
 	now := t.UnixNano()/int64(1000) + time19701900
 	y.mall.Log.Debug("now->%d\n", now)
 
-	_, err := y.db.Exec("insert into inout_log(extflow, type, amount, status, operatetime, checkdate) values(?, ?, ?, ?, ?, ?)",
-		lg.extflow, lg.iotype, lg.amount, 0, now, "")
+	_, err := y.db.Exec("insert into inout_log(extflow, type, amount, status, operatetime, checkdate, payway) values(?, ?, ?, ?, ?, ?, ?)",
+		lg.extflow, lg.iotype, lg.amount, 0, now, "", lg.payway)
 	if err != nil {
 		y.mall.Log.Error("InsertLog failed, error = %s\n", err)
 		return err

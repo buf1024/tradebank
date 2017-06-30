@@ -16,6 +16,18 @@ type YaodePay interface {
 	CheckReq(orderId string) (int32, error)
 }
 
+const (
+	QUERYRESULT_RETRY_TIMES = 5
+)
+
+type QueryResultContext struct {
+	extflow    string
+	orderId    string
+	amount     string
+	bankacct   string
+	retryTimes int64
+}
+
 type PayReq struct {
 	mchKey      string
 	merId       string

@@ -13,9 +13,10 @@ import (
 	pb "github.com/golang/protobuf/proto"
 	ini "github.com/vaughan0/go-ini"
 
-	"tradebank/logging"
 	"tradebank/proto"
 	"tradebank/util"
+
+	"github.com/buf1024/golib/logging"
 )
 
 type exchMsg struct {
