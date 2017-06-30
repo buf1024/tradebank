@@ -26,91 +26,81 @@ type NetBankPay struct {
 	notifyUrl  string
 
 	//no cardpay
-	NetBankMchNo   string
-	NetBankMchKey  string
 	NetBankReqHost string
 
 	PageNotifyUrl string
 	BackNotifyUrl string
 }
 
-func (n *NetBankPay) loadConf(f *ini.File) error {
+func (p *NetBankPay) loadConf(f *ini.File) error {
 	//netbank pay
 	ok := false
-	n.NetBankMchNo, ok = f.Get("YDM", "NETBANKPAY_MCHNO")
-	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NETBANKPAY_MCHNO")
-	}
-	n.NetBankMchKey, ok = f.Get("YDM", "NETBANKPAY_MCHKEY")
-	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NETBANKPAY_MCHKEY")
-	}
-	n.NetBankReqHost, ok = f.Get("YDM", "NETBANKPAY_PAYHOST")
+	p.NetBankReqHost, ok = f.Get("YDM", "NETBANKPAY_PAYHOST")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETBANKPAY_PAYHOST")
 	}
-	n.PageNotifyUrl, ok = f.Get("YDM", "NETBANKPAGE_NOTIFY_URL")
+	p.PageNotifyUrl, ok = f.Get("YDM", "NETBANKPAGE_NOTIFY_URL")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETBANKPAGE_NOTIFY_URL")
 	}
-	n.BackNotifyUrl, ok = f.Get("YDM", "NETBANKBACK_NOTIFY_URL")
+	p.BackNotifyUrl, ok = f.Get("YDM", "NETBANKBACK_NOTIFY_URL")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETBANKBACK_NOTIFY_URL")
 	}
-	iStart := strings.LastIndex(n.BackNotifyUrl, ":")
-	if iStart == -1 || iStart == len(n.BackNotifyUrl)-1 {
+	iStart := strings.LastIndex(p.BackNotifyUrl, ":")
+	if iStart == -1 || iStart == len(p.BackNotifyUrl)-1 {
 		return fmt.Errorf("missing listen port")
 	}
-	iEnd := strings.Index(n.BackNotifyUrl[iStart+1:], "/")
+	iEnd := strings.Index(p.BackNotifyUrl[iStart+1:], "/")
 	if iEnd == -1 {
 		var err error
-		n.listenPort, err = strconv.Atoi(n.BackNotifyUrl[iStart+1:])
+		p.listenPort, err = strconv.Atoi(p.BackNotifyUrl[iStart+1:])
 		if err != nil {
 			return err
 		}
-		n.notifyUrl = "/"
+		p.notifyUrl = "/"
 	} else {
 		iEnd = iStart + 1 + iEnd
 		var err error
-		n.listenPort, err = strconv.Atoi(n.BackNotifyUrl[iStart+1 : iEnd])
+		p.listenPort, err = strconv.Atoi(p.BackNotifyUrl[iStart+1 : iEnd])
 		if err != nil {
 			return err
 		}
-		n.notifyUrl = n.BackNotifyUrl[iEnd:]
+		p.notifyUrl = p.BackNotifyUrl[iEnd:]
 	}
-	n.mall.Log.Debug("listen=%d, url=%s\n", n.listenPort, n.notifyUrl)
+	p.mall.Log.Debug("listen=%d, url=%s\n", p.listenPort, p.notifyUrl)
 	return nil
 
 }
-func (n *NetBankPay) NotifyHandler(rsp http.ResponseWriter, req *http.Request) {
+func (p *NetBankPay) NotifyHandler(rsp http.ResponseWriter, req *http.Request) {
 
 }
-func (n *NetBankPay) TestHttpListen() bool {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", n.listenPort))
+func (p *NetBankPay) TestHttpListen() bool {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", p.listenPort))
 	if err != nil {
-		n.mall.Log.Error("try to listen port %d failed.\n", n.listenPort)
+		p.mall.Log.Error("try to listen port %d failed.\n", p.listenPort)
 		return false
 	}
 	l.Close()
 	return true
 }
-func (n *NetBankPay) HttpListen() {
-	n.mall.Log.Info("http start listen %d \n", n.listenPort)
-	http.HandleFunc(n.notifyUrl, n.NotifyHandler)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", n.listenPort), nil)
+func (p *NetBankPay) HttpListen() {
+	p.mall.Log.Info("http start listen %d \n", p.listenPort)
+	http.HandleFunc(p.notifyUrl, p.NotifyHandler)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", p.listenPort), nil)
 	if err != nil {
-		n.mall.Log.Error("http listen %s failed\n", n.listenPort)
+		p.mall.Log.Error("http listen %s failed\n", p.listenPort)
 
 	}
 }
-func (n *NetBankPay) Init(f *ini.File) error {
-	err := n.loadConf(f)
+func (p *NetBankPay) Init(f *ini.File) error {
+	err := p.loadConf(f)
 	if err != nil {
-		n.mall.Log.Error("netbank loadConf failed, err=%s\n", err)
+		p.mall.Log.Error("netbank loadConf failed, err=%s\n", err)
 		return err
 	}
-	if n.TestHttpListen() {
-		go n.HttpListen()
+	if p.TestHttpListen() {
+		go p.HttpListen()
 	} else {
 		return fmt.Errorf("listen netbank addr failed")
 	}
@@ -118,19 +108,19 @@ func (n *NetBankPay) Init(f *ini.File) error {
 	return nil
 }
 
-func (n *NetBankPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
+func (p *NetBankPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	bankReq := &PayReq{}
 	bankReq.cardByName = base64.StdEncoding.EncodeToString([]byte(req.GetCustName()))
 	bankReq.cardByNo = req.GetBankAcct()
 	bankReq.cerNumber = req.GetCustCID()
-	bankReq.mchKey = n.NetBankMchKey
-	bankReq.merId = n.NetBankMchNo
+	bankReq.mchKey = p.mall.MchKey
+	bankReq.merId = p.mall.MchNo
 	bankReq.orderId = req.GetExchSID()
 	bankReq.transAmount = fmt.Sprintf("%.2f", req.GetAmount())
-	bankReq.backNotifyUrl = n.BackNotifyUrl
-	bankReq.pageNotifyUrl = n.PageNotifyUrl
+	bankReq.backNotifyUrl = p.BackNotifyUrl
+	bankReq.pageNotifyUrl = p.PageNotifyUrl
 
-	bankMsg, err := n.PayReq(bankReq)
+	bankMsg, err := p.PayReq(bankReq)
 	if err != nil {
 		return err
 	}
@@ -145,25 +135,25 @@ func (n *NetBankPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	rsp.BankID = pb.Int32(req.GetBankID())
 	rsp.RetCode = pb.Int32(int32(util.E_SUCCESS))
 	rsp.RetMsg = pb.String(util.GetErrMsg(util.E_SUCCESS))
-	rsp.PostUrl = pb.String(n.NetBankReqHost)
+	rsp.PostUrl = pb.String(p.NetBankReqHost)
 	rsp.PostData = pb.String(bankMsg)
 
-	return n.mall.MakeRsp(proto.CMD_E2B_IN_MONEY_RSP, rsp)
+	return p.mall.MakeRsp(proto.CMD_E2B_IN_MONEY_RSP, rsp)
 }
-func (n *NetBankPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
+func (p *NetBankPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
 	return fmt.Errorf("not surport outmoney")
 }
-func (n *NetBankPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
+func (p *NetBankPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
 	return fmt.Errorf("not surport verify code")
 }
 
-func (n *NetBankPay) CheckReq(orderId string) (int32, error) {
+func (p *NetBankPay) CheckReq(orderId string) (int32, error) {
 	return 0, nil
 }
-func (n *NetBankPay) GetExchCode(rsp *PayRsp) int32 {
+func (p *NetBankPay) GetExchCode(rsp *PayRsp) int32 {
 	return 0
 }
-func (n *NetBankPay) SignReqData(v *PayUrlValues, key string) (string, error) {
+func (p *NetBankPay) SignReqData(v *PayUrlValues, key string) (string, error) {
 
 	signStr := v.Encode() + key
 	h := md5.New()
@@ -171,11 +161,11 @@ func (n *NetBankPay) SignReqData(v *PayUrlValues, key string) (string, error) {
 	md5sum := strings.ToUpper(hex.EncodeToString(h.Sum(nil)))
 	v.Add("signData", md5sum)
 	srcData := v.Encode()
-	n.mall.Log.Info("REQ:%s\n", srcData)
+	p.mall.Log.Info("REQ:%s\n", srcData)
 
 	return srcData, nil
 }
-func (n *NetBankPay) PayReq(req *PayReq) (string, error) {
+func (p *NetBankPay) PayReq(req *PayReq) (string, error) {
 	//v := url.Values{}
 	v := PayUrlValues{}
 	v.Add("versionId", "001")
@@ -193,5 +183,5 @@ func (n *NetBankPay) PayReq(req *PayReq) (string, error) {
 	//v.Add("orderDesc", "")
 	//v.Add("dev", "")
 
-	return n.SignReqData(&v, req.mchKey)
+	return p.SignReqData(&v, req.mchKey)
 }

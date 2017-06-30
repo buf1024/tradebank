@@ -9,7 +9,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"strings"
-	"tradebank/iomsframe"
+	"tradebank/ioms"
 	"tradebank/proto"
 	"tradebank/util"
 
@@ -26,8 +26,6 @@ type NetOutPay struct {
 	mall *YaodeMall
 
 	//no cardpay
-	NetOutMchNo      string
-	NetOutMchKey     string
 	NetOutPublicKey  string
 	NetOutPrivateKey string
 	NetOutReqHost    string
@@ -63,7 +61,7 @@ type RespBody struct {
 	RefMsg  string `json:"refMsg,omitempty"`
 }
 
-func (n *NetOutPay) Encrypt(req *PayReq) (string, error) {
+func (p *NetOutPay) Encrypt(req *PayReq) (string, error) {
 
 	t := &TransBody{}
 	t.OrderId = req.orderId
@@ -76,44 +74,36 @@ func (n *NetOutPay) Encrypt(req *PayReq) (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	encJS, err := myrsa.PrivateEncrypt(n.privt, js)
+	encJS, err := myrsa.PrivateEncrypt(p.privt, js)
 	if err != nil {
 		return "", nil
 	}
 	return string(encJS), nil
 
 }
-func (n *NetOutPay) Decrypt(data []byte) (string, error) {
-	decData, err := myrsa.PublicDecrypt(n.pub, data)
+func (p *NetOutPay) Decrypt(data []byte) (string, error) {
+	decData, err := myrsa.PublicDecrypt(p.pub, data)
 	if err != nil {
 		return "", err
 	}
 	return string(decData), nil
 }
 
-func (n *NetOutPay) loadConf(f *ini.File) error {
+func (p *NetOutPay) loadConf(f *ini.File) error {
 	//netbank pay
 	ok := false
-	n.NetOutMchNo, ok = f.Get("YDM", "NETOUTPAY_MCHNO")
-	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_MCHNO")
-	}
-	n.NetOutMchKey, ok = f.Get("YDM", "NETOUTPAY_MCHKEY")
-	if !ok {
-		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_MCHKEY")
-	}
-	n.NetOutPublicKey, ok = f.Get("YDM", "NETOUTPAY_PUBLIC_KEY")
+	p.NetOutPublicKey, ok = f.Get("YDM", "NETOUTPAY_PUBLIC_KEY")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_PUBLIC_KEY")
 	}
-	n.NetOutPrivateKey, ok = f.Get("YDM", "NETOUTPAY_PRIVITE_KEY")
+	p.NetOutPrivateKey, ok = f.Get("YDM", "NETOUTPAY_PRIVITE_KEY")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_PRIVITE_KEY")
 	}
-	if err := n.loadRSAkeys(n.NetOutPublicKey, n.NetOutPrivateKey); err != nil {
+	if err := p.loadRSAkeys(p.NetOutPublicKey, p.NetOutPrivateKey); err != nil {
 		return err
 	}
-	n.NetOutReqHost, ok = f.Get("YDM", "NETOUTPAY_PAYHOST")
+	p.NetOutReqHost, ok = f.Get("YDM", "NETOUTPAY_PAYHOST")
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=NETOUTPAY_PAYHOST")
 	}
@@ -121,7 +111,7 @@ func (n *NetOutPay) loadConf(f *ini.File) error {
 	return nil
 
 }
-func (n *NetOutPay) loadRSAkeys(public string, private string) error {
+func (p *NetOutPay) loadRSAkeys(public string, private string) error {
 	// load private key
 	bs, err := ioutil.ReadFile(private)
 	if err != nil {
@@ -131,7 +121,7 @@ func (n *NetOutPay) loadRSAkeys(public string, private string) error {
 	if block == nil {
 		return fmt.Errorf("decode private key failed")
 	}
-	n.privt, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+	p.privt, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return err
 	}
@@ -149,61 +139,61 @@ func (n *NetOutPay) loadRSAkeys(public string, private string) error {
 		return err
 	}
 	ok := false
-	n.pub, ok = cert.PublicKey.(*rsa.PublicKey)
+	p.pub, ok = cert.PublicKey.(*rsa.PublicKey)
 	if !ok {
 		return fmt.Errorf("convert to public key failed")
 	}
 	return nil
 }
 
-func (n *NetOutPay) Init(f *ini.File) error {
-	err := n.loadConf(f)
+func (p *NetOutPay) Init(f *ini.File) error {
+	err := p.loadConf(f)
 	if err != nil {
-		n.mall.Log.Error("netout loadConf failed, err=%s\n", err)
+		p.mall.Log.Error("netout loadConf failed, err=%s\n", err)
 		return err
 	}
 
 	return nil
 }
 
-func (n *NetOutPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
+func (p *NetOutPay) InMoneyReq(req *proto.E2BInMoneyReq) error {
 	return fmt.Errorf("not surport inmoney")
 
 }
-func (n *NetOutPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
+func (p *NetOutPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
 	bankReq := &PayReq{}
 	bankReq.cardByName = base64.StdEncoding.EncodeToString([]byte(req.GetCustName()))
 	bankReq.cardByNo = req.GetBankAcct()
 	bankReq.cerNumber = req.GetCustCID()
-	bankReq.mchKey = n.NetOutMchKey
-	bankReq.merId = n.NetOutMchNo
+	bankReq.mchKey = p.mall.MchKey
+	bankReq.merId = p.mall.MchNo
 	bankReq.orderId = req.GetExchSID()
 	bankReq.transAmount = fmt.Sprintf("%.2f", req.GetAmount())
 
-	bankMsg, err := n.PayReq(bankReq)
+	bankMsg, err := p.PayReq(bankReq)
 	if err != nil {
 		return err
 	}
 	dbData := InoutLog{
 		extflow: bankReq.orderId,
-		iotype:  iomsframe.BANK_OUTMONEY,
+		iotype:  ioms.BANK_OUTMONEY,
 		amount:  req.GetAmount(),
 	}
-	err = n.mall.db.InsertLog(dbData)
+	err = p.mall.db.InsertLog(dbData)
 	if err != nil {
-		n.mall.Log.Error("InsertLog failed. extflow=%s\n", dbData.extflow)
+		p.mall.Log.Error("InsertLog failed. extflow=%s\n", dbData.extflow)
 		return err
 	}
 
-	n.mall.Log.Info("POST REQ:\nURL=%s\n, DATA=%s\n", n.NetOutReqHost, bankMsg)
-	bankRsp, err := util.PostData(n.NetOutReqHost, []byte(bankMsg))
+	p.mall.Log.Info("POST REQ:\nURL=%s\n, DATA=%s\n", p.NetOutReqHost, bankMsg)
+	bankRsp, err := util.PostData(p.NetOutReqHost, []byte(bankMsg))
 	if err != nil {
 		return err
 	}
-	n.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
-	payRsp, err := n.ParseRsp(bankRsp) // todo
+	p.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
+	payRsp, err := p.ParseRsp(bankRsp) // todo
 	if err != nil {
-		n.mall.Log.Error("parse resp message failed.")
+		p.mall.Log.Error("parse resp message failed.")
 		return nil
 	}
 
@@ -217,7 +207,7 @@ func (n *NetOutPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
 		amount:     bankReq.transAmount,
 		retryTimes: 0,
 	}
-	util.CallMeLater(n.mall.TimeOutSess, n.CheckResult, ctx)
+	util.CallMeLater(p.mall.TimeOutSess, p.CheckResult, ctx)
 
 	rsp := rspMsg.(*proto.E2BOutMoneyRsp)
 	rsp.ExchSID = pb.String(req.GetExchSID())
@@ -225,40 +215,40 @@ func (n *NetOutPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
 	rsp.RetCode = pb.Int32(int32(util.E_SUCCESS)) // 默认成功
 	rsp.RetMsg = pb.String(payRsp.refMsg)
 
-	return n.mall.MakeRsp(proto.CMD_E2B_OUT_MONEY_RSP, rsp)
+	return p.mall.MakeRsp(proto.CMD_E2B_OUT_MONEY_RSP, rsp)
 }
-func (n *NetOutPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
+func (p *NetOutPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
 	return fmt.Errorf("not surport verify code")
 }
 
-func (n *NetOutPay) CheckReq(orderId string) (int32, error) {
+func (p *NetOutPay) CheckReq(orderId string) (int32, error) {
 	bankReq := &PayReq{}
-	bankReq.merId = n.NetOutMchNo
-	bankReq.mchKey = n.NetOutMchKey
+	bankReq.merId = p.mall.MchNo
+	bankReq.mchKey = p.mall.MchKey
 	bankReq.orderId = orderId
 
-	bankMsg, err := n.QueryReq(bankReq)
+	bankMsg, err := p.QueryReq(bankReq)
 	if err != nil {
 		return 0, err
 	}
-	n.mall.Log.Info("POST REQ:\nURL=%s\n, DATA=%s\n", n.NetOutPublicKey, bankMsg)
-	bankRsp, err := util.PostData(n.NetOutReqHost, []byte(bankMsg))
+	p.mall.Log.Info("POST REQ:\nURL=%s\n, DATA=%s\n", p.NetOutPublicKey, bankMsg)
+	bankRsp, err := util.PostData(p.NetOutReqHost, []byte(bankMsg))
 	if err != nil {
 		return 0, err
 	}
-	n.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
-	rspData, err := n.ParseRsp(bankRsp)
+	p.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
+	rspData, err := p.ParseRsp(bankRsp)
 	if err != nil {
 		return 0, err
 	}
-	packSt, buzSt := n.GetExchCode(rspData)
+	packSt, buzSt := p.GetExchCode(rspData)
 	if packSt == util.E_SUCCESS {
 		return buzSt, nil
 	}
 	return 0, fmt.Errorf("packet state not success")
 
 }
-func (n *NetOutPay) GetExchCode(rsp *PayRsp) (int32, int32) {
+func (p *NetOutPay) GetExchCode(rsp *PayRsp) (int32, int32) {
 	if rsp.status != "00" {
 		return util.E_BANK_ERR, 0
 	}
@@ -268,7 +258,7 @@ func (n *NetOutPay) GetExchCode(rsp *PayRsp) (int32, int32) {
 
 	return util.E_SUCCESS, util.E_HALF_SUCCESS
 }
-func (n *NetOutPay) EncryptReqData(v *TransReq, key string) (string, error) {
+func (p *NetOutPay) EncryptReqData(v *TransReq, key string) (string, error) {
 
 	signStr := fmt.Sprintf("businessType=%s&merId=%s&transBody=%s&versionId=%s&key=%s",
 		v.BusinessType, v.MerID, v.TransBody, v.VersionID, key)
@@ -282,12 +272,12 @@ func (n *NetOutPay) EncryptReqData(v *TransReq, key string) (string, error) {
 		return "", err
 	}
 	jsStr := string(jsData)
-	n.mall.Log.Info("REQ:%s\n", jsStr)
+	p.mall.Log.Info("REQ:%s\n", jsStr)
 
 	return jsStr, nil
 }
-func (n *NetOutPay) PayReq(req *PayReq) (string, error) {
-	tb, err := n.Encrypt(req)
+func (p *NetOutPay) PayReq(req *PayReq) (string, error) {
+	tb, err := p.Encrypt(req)
 	if err != nil {
 		return "", err
 	}
@@ -299,10 +289,10 @@ func (n *NetOutPay) PayReq(req *PayReq) (string, error) {
 		TransBody:    tb,
 	}
 
-	return n.EncryptReqData(tranReq, req.mchKey)
+	return p.EncryptReqData(tranReq, req.mchKey)
 }
-func (n *NetOutPay) QueryReq(req *PayReq) (string, error) {
-	tb, err := n.Encrypt(req)
+func (p *NetOutPay) QueryReq(req *PayReq) (string, error) {
+	tb, err := p.Encrypt(req)
 	if err != nil {
 		return "", err
 	}
@@ -314,10 +304,10 @@ func (n *NetOutPay) QueryReq(req *PayReq) (string, error) {
 		TransBody:    tb,
 	}
 
-	return n.EncryptReqData(tranReq, req.mchKey)
+	return p.EncryptReqData(tranReq, req.mchKey)
 }
 
-func (n *NetOutPay) ParseRsp(rspStr []byte) (*PayRsp, error) {
+func (p *NetOutPay) ParseRsp(rspStr []byte) (*PayRsp, error) {
 	v := make(map[string]interface{})
 	err := json.Unmarshal(rspStr, &v)
 	if err != nil {
@@ -338,7 +328,7 @@ func (n *NetOutPay) ParseRsp(rspStr []byte) (*PayRsp, error) {
 		if !ok {
 			return nil, fmt.Errorf("resBody not found")
 		}
-		rspStr, err := n.Decrypt([]byte(rspBody))
+		rspStr, err := p.Decrypt([]byte(rspBody))
 		if err != nil {
 			return nil, err
 		}
@@ -356,49 +346,49 @@ func (n *NetOutPay) ParseRsp(rspStr []byte) (*PayRsp, error) {
 	return rsp, nil
 }
 
-func (n *NetOutPay) CheckResult(to int64, data interface{}) {
+func (p *NetOutPay) CheckResult(to int64, data interface{}) {
 	ctx := data.(*QueryResultContext)
 	if ctx.retryTimes < QUERYRESULT_RETRY_TIMES {
-		n.mall.Log.Debug("query out money result, extflow=%s\n", ctx.extflow)
+		p.mall.Log.Debug("query out money result, extflow=%s\n", ctx.extflow)
 		ctx.retryTimes++
-		n.mall.Log.Info("query out money result for sid=%s\n", ctx.extflow)
-		ret, err := n.CheckReq(ctx.extflow)
+		p.mall.Log.Info("query out money result for sid=%s\n", ctx.extflow)
+		ret, err := p.CheckReq(ctx.extflow)
 		if err != nil {
-			n.mall.Log.Info("check req out money failed, err=%s\n", err)
+			p.mall.Log.Info("check req out money failed, err=%s\n", err)
 		} else {
 			if ret != util.E_HALF_SUCCESS {
-				err = n.mall.db.UpdateLog(ctx.extflow, int(ret), "")
+				err = p.mall.db.UpdateLog(ctx.extflow, int(ret), "")
 				if err != nil {
-					n.mall.Log.Error("update database error, err=%s\n", ctx.extflow)
+					p.mall.Log.Error("update database error, err=%s\n", ctx.extflow)
 					return
 				}
 
 				reqMsg, err := proto.Message(proto.CMD_B2E_INOUTNOTIFY_REQ)
 				if err != nil {
-					n.mall.Log.Info("proto.message error: %s\n", err)
+					p.mall.Log.Info("proto.message error: %s\n", err)
 					return
 				}
 				req := reqMsg.(*proto.B2EInOutNotifyReq)
-				req.TransType = pb.Int32(iomsframe.BANK_OUTMONEY)
+				req.TransType = pb.Int32(ioms.BANK_OUTMONEY)
 				req.BankAcct = pb.String(ctx.bankacct)
-				req.BankId = pb.Int32(int32(n.mall.BankID))
+				req.BankId = pb.Int32(int32(p.mall.BankID))
 				req.BankSID = pb.String(ctx.orderId)
 				req.Currency = pb.Int32(1)
 				req.ExchSID = pb.String(ctx.extflow)
 				req.Status = pb.Int32(ret)
 				req.RetMsg = pb.String(util.GetErrMsg(int64(ret)))
-				n.mall.Log.Info("query out money result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
+				p.mall.Log.Info("query out money result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
 
-				n.mall.MakeRsp(proto.CMD_B2E_INOUTNOTIFY_REQ, req)
+				p.mall.MakeRsp(proto.CMD_B2E_INOUTNOTIFY_REQ, req)
 
 				// insert session
 
 				return
 			}
 		}
-		util.CallMeLater(ctx.retryTimes*n.mall.TimeOutReconn, n.CheckResult, ctx)
+		util.CallMeLater(ctx.retryTimes*p.mall.TimeOutReconn, p.CheckResult, ctx)
 
 		return
 	}
-	n.mall.Log.Info("no result for sid = %s, query result in daily check.\n", ctx.extflow)
+	p.mall.Log.Info("no result for sid = %s, query result in daily check.\n", ctx.extflow)
 }

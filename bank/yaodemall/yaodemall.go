@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"tradebank/iomsframe"
+	"tradebank/ioms"
 
 	"tradebank/proto"
 
@@ -21,7 +21,7 @@ import (
 )
 
 type YaodeMall struct {
-	iomsframe.ExchFrame
+	ioms.ExchFrame
 
 	pay map[string]YaodePay
 	db  *YaodeMallDB
@@ -29,6 +29,9 @@ type YaodeMall struct {
 	BankName string
 	BankID   int64
 	DBPath   string
+
+	MchNo  string
+	MchKey string
 
 	CheckPath string
 	FtpHost   string
@@ -41,7 +44,7 @@ type CheckContext struct {
 	pay        YaodePay
 	date       string
 	log        *InoutLog
-	file       *iomsframe.CheckFile
+	file       *ioms.CheckFile
 	retryTimes int64
 }
 
@@ -90,6 +93,51 @@ func (b *YaodeMall) loadBankConf(path string) error {
 	if !ok {
 		return fmt.Errorf("missing configure, sec=YDM, key=DB_PATH")
 	}
+	b.MchNo, ok = f.Get("YDM", "PAY_MCHNO")
+	if !ok {
+		return fmt.Errorf("missing configure, sec=YDM, key=PAY_MCHNO")
+	}
+	b.MchNo, err = util.DBDecrypt(b.MchNo)
+	if err != nil {
+		return fmt.Errorf("decrypt mch no failed, err=%s", str)
+	}
+	b.MchKey, ok = f.Get("YDM", "PAY_MCHKEY")
+	if !ok {
+		return fmt.Errorf("missing configure, sec=YDM, key=PAY_MCHKEY")
+	}
+	b.MchKey, err = util.DBDecrypt(b.MchKey)
+	if err != nil {
+		return fmt.Errorf("decrypt mch key failed, err=%s", str)
+	}
+
+	b.FtpHost, ok = f.Get("YDM", "FTP_CHECK_HOST")
+	if !ok {
+		return fmt.Errorf("missing configure, sec=YDM, key=FTP_CHECK_HOST")
+	}
+	b.FtpHost, err = util.DBDecrypt(b.FtpHost)
+	if err != nil {
+		return fmt.Errorf("decrypt ftp host failed, err=%s", str)
+	}
+	b.FtpUser, ok = f.Get("YDM", "FTP_CHECK_USER")
+	if !ok {
+		return fmt.Errorf("missing configure, sec=YDM, key=FTP_CHECK_USER")
+	}
+	b.FtpUser, err = util.DBDecrypt(b.FtpUser)
+	if err != nil {
+		return fmt.Errorf("decrypt ftp user failed, err=%s", str)
+	}
+	b.FtpPass, ok = f.Get("YDM", "FTP_CHECK_PASS")
+	if !ok {
+		return fmt.Errorf("missing configure, sec=YDM, key=FTP_CHECK_PASS")
+	}
+	b.FtpPass, err = util.DBDecrypt(b.FtpPass)
+	if err != nil {
+		return fmt.Errorf("decrypt ftp pass failed, err=%s", str)
+	}
+	b.FtpPath, ok = f.Get("YDM", "FTP_CHECK_PATH")
+	if !ok {
+		return fmt.Errorf("missing configure, sec=YDM, key=FTP_CHECK_PATH")
+	}
 
 	for _, v := range b.pay {
 		if err = v.Init(&f); err != nil {
@@ -108,7 +156,7 @@ func (b *YaodeMall) ID() int64 {
 	return b.BankID
 }
 
-func (b *YaodeMall) InitBank(m *iomsframe.ExchFrame) error {
+func (b *YaodeMall) InitBank(m *ioms.ExchFrame) error {
 	err := b.loadBankConf(m.FileConf)
 	if err != nil {
 		return err
@@ -119,7 +167,7 @@ func (b *YaodeMall) InitBank(m *iomsframe.ExchFrame) error {
 	}
 	return nil
 }
-func (b *YaodeMall) StopBank(m *iomsframe.ExchFrame) {
+func (b *YaodeMall) StopBank(m *ioms.ExchFrame) {
 
 }
 func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
@@ -137,7 +185,7 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 				b.Log.Error("unknown payway, payway=%s\n", payway)
 				return err
 			}
-			pay := b.GetPay(iomsframe.BANK_INMONEY, paywayNum)
+			pay := b.GetPay(ioms.BANK_INMONEY, paywayNum)
 			if pay == nil {
 				b.Log.Error("unknown payway, payway=%s\n", payway)
 				return fmt.Errorf("unknown payway, payway=%s", payway)
@@ -146,7 +194,7 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 		}
 	case proto.CMD_E2B_OUT_MONEY_REQ:
 		{
-			pay := b.GetPay(iomsframe.BANK_OUTMONEY, 0)
+			pay := b.GetPay(ioms.BANK_OUTMONEY, 0)
 			if pay == nil {
 				return fmt.Errorf("not support out money req")
 			}
@@ -159,7 +207,7 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 
 			rspMsg, err := proto.Message(proto.CMD_E2B_CHECK_START_RSP)
 			if err != nil {
-				b.Log.Critical("create message failed, ERR=%s\n", err.Error())
+				b.Log.Error("create message failed, ERR=%s\n", err.Error())
 				return err
 			}
 
@@ -170,22 +218,22 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 
 			err = b.MakeRsp(proto.CMD_E2B_CHECK_START_RSP, rsp)
 			if err != nil {
-				b.Log.Critical("MakeRsp failed, ERR=%s\n", err.Error())
+				b.Log.Error("MakeRsp failed, ERR=%s\n", err.Error())
 				return err
 			}
 
 			t, err := util.DateStrToUTCMicroSec(req.GetTradeDate())
 			if err != nil {
-				b.Log.Critical("convert date str to utc micro sec failed, ERR=%s\n", err.Error())
+				b.Log.Error("convert date str to utc micro sec failed, ERR=%s\n", err.Error())
 				return err
 			}
 
 			logs, err := b.db.QueryCheckLog(t)
 			if err != nil {
-				b.Log.Critical("query database failed, ERR=%s\n", err.Error())
+				b.Log.Error("query database failed, ERR=%s\n", err.Error())
 				return err
 			}
-			chkFile := iomsframe.NewCheckFile(b.CheckPath, int(b.BankID),
+			chkFile := ioms.NewCheckFile(b.CheckPath, int(b.BankID),
 				int(req.GetBatchNo()), req.GetTradeDate(), len(logs))
 
 			if len(logs) == 0 {
@@ -245,7 +293,7 @@ func (b *YaodeMall) GetPay(inout int, payway int) YaodePay {
 	}
 	return nil
 }
-func (b *YaodeMall) CheckFileNotify(f *iomsframe.CheckFile) {
+func (b *YaodeMall) CheckFileNotify(f *ioms.CheckFile) {
 	if err := util.FtpPut(b.FtpHost, b.FtpUser, b.FtpPass, f.FileName, b.FtpPath, f.FullPath); err != nil {
 		b.Log.Error("ftp put failed. err=%s\n", err)
 		return
@@ -253,7 +301,7 @@ func (b *YaodeMall) CheckFileNotify(f *iomsframe.CheckFile) {
 
 	reqMsg, err := proto.Message(proto.CMD_B2E_CHECK_FILE_NOTIFICATION_REQ)
 	if err != nil {
-		b.Log.Critical("create message failed, ERR=%s\n", err.Error())
+		b.Log.Error("create message failed, ERR=%s\n", err.Error())
 		return
 	}
 
@@ -265,7 +313,7 @@ func (b *YaodeMall) CheckFileNotify(f *iomsframe.CheckFile) {
 
 	signData, err := ioutil.ReadFile(f.FullPath)
 	if err != nil {
-		b.Log.Critical("read file failed, err=%s\n", err)
+		b.Log.Error("read file failed, err=%s\n", err)
 		return
 	}
 	h := md5.New()
@@ -321,10 +369,13 @@ func YaodeMallServer() *YaodeMall {
 	m.db.mall = m
 
 	nocard := &NoCardPay{mall: m}
-	m.AddPay(iomsframe.BANK_INMONEY, iomsframe.PAYWAY_NOCARD, nocard)
+	m.AddPay(ioms.BANK_INMONEY, ioms.PAYWAY_NOCARD, nocard)
 
 	netbank := &NetBankPay{mall: m}
-	m.AddPay(iomsframe.BANK_INMONEY, iomsframe.PAYWAY_NETBANK, netbank)
+	m.AddPay(ioms.BANK_INMONEY, ioms.PAYWAY_NETBANK, netbank)
+
+	netout := &NetOutPay{mall: m}
+	m.AddPay(ioms.BANK_OUTMONEY, ioms.PAYWAY_DEFAULT, netout)
 
 	return m
 }

@@ -50,6 +50,7 @@ type VerifyReq struct {
 	yzm          string
 	ksPayOrderId string
 }
+
 type QueryReq struct {
 	mchKey    string
 	merId     string

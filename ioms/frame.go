@@ -1,4 +1,4 @@
-package iomsframe
+package ioms
 
 import (
 	"flag"
@@ -48,6 +48,8 @@ type Config struct {
 	ExchPort int64
 	//ControlAddr string
 	//ControlPort int64
+	DesFlag bool
+	DesKey  string
 
 	TimeOutReconn int64
 	TimeOutSess   int64
@@ -77,7 +79,7 @@ func (m *ExchFrame) exchHandleRecv() {
 		buf := make([]byte, proto.GetHeaderLength())
 		_, err = m.exch.conn.Read(buf)
 		if err != nil {
-			m.Log.Error("read exch packet head failed. ERR=%s\n", err)
+			m.Log.Error("read exch packet head failed. err=%s\n", err)
 			break
 		}
 		var head *proto.MessageHeader
@@ -89,10 +91,16 @@ func (m *ExchFrame) exchHandleRecv() {
 		buf = make([]byte, head.Length-uint32(proto.GetHeaderLength()))
 		_, err = m.exch.conn.Read(buf)
 		if err != nil {
-			m.Log.Error("read exch packet head failed. ERR=%s\n", err)
+			m.Log.Error("read exch packet head failed. err=%s\n", err)
 			break
 		}
-		// TODO BUF 解密
+		if m.DesFlag && ((head.Command & proto.IOMSCMDPREFIX) == proto.IOMSCMDPREFIX) {
+			buf, err = util.PacketDecrypt(m.DesKey, buf)
+			if err != nil {
+				m.Log.Error("decrypt exch packet head failed. err=%s\n", err)
+				break
+			}
+		}
 		var msg pb.Message
 		msg, err = proto.Parse(int64(head.Command), buf)
 		if err != nil {
@@ -198,7 +206,7 @@ func (m *ExchFrame) exchRegister() error {
 	m.Log.Info("reg to exch\n")
 	msg, err := proto.Message(proto.CMD_SVR_REG_REQ)
 	if err != nil {
-		m.Log.Critical("create message failed, ERR=%s\n", err.Error())
+		m.Log.Error("create message failed, err=%s\n", err.Error())
 		return err
 	}
 
@@ -209,35 +217,6 @@ func (m *ExchFrame) exchRegister() error {
 
 	return m.WriteMsg(proto.CMD_SVR_REG_REQ, req)
 
-}
-
-func (m *ExchFrame) MakeReq(command int64, msg pb.Message) error {
-	if command%2 == 0 {
-		command = command + 1
-	}
-	return m.WriteMsg(command, msg)
-}
-func (m *ExchFrame) MakeRsp(command int64, msg pb.Message) error {
-	if command%2 != 0 {
-		command = command + 1
-	}
-	return m.WriteMsg(command, msg)
-}
-
-func (m *ExchFrame) WriteMsg(command int64, msg pb.Message) error {
-
-	reqMsg := &exchMsg{}
-	reqMsg.command = command
-	reqMsg.pbmsg = msg
-	var err error
-	reqMsg.message, err = proto.SerializeMessage(command, msg, false)
-	if err != nil {
-		m.Log.Critical("serialize message failed, ERR=%s\n", err.Error())
-		return err
-	}
-	m.exch.sendChan <- reqMsg
-
-	return nil
 }
 
 func (m *ExchFrame) timerOnce(to int64, typ string, ch interface{}, cmd interface{}) {
@@ -387,78 +366,6 @@ func (m *ExchFrame) parseArgs() {
 	m.fileConf = *file
 }
 
-// StartTimer start the timer
-/*func (m *ExchFrame) StartTimer(value int64, handler TimerHandler) int64 {
-	return 1
-}
-*/
-// StopTimer stop the timer
-func (m *ExchFrame) StopTimer(id int64) {
-
-}
-
-// InitServer init the io money server
-func (m *ExchFrame) InitServer() {
-	m.parseArgs()
-
-	err := error(nil)
-
-	// read configure
-	m.Config, err = m.loadConfig(m.fileConf)
-	if err != nil {
-		fmt.Printf("LoadConfig failed, file = %s, ERR=%s\n", m.FileConf, err.Error())
-		os.Exit(-1)
-	}
-
-	// init logging
-	err = m.initLog()
-	if err != nil {
-		fmt.Printf("init log failed. ERR=%s\n", err.Error())
-		os.Exit(-1)
-	}
-
-	// load bank configure
-	err = m.initBank()
-	if err != nil {
-		m.Log.Critical("init bank failed. ERR=%s\n", err.Error())
-		m.Stop()
-		os.Exit(-1)
-	}
-
-	go m.sigTask()
-
-	m.cmdChan = make(chan string, 1024)
-	m.Log.Info("start task go routine\n")
-	go m.cmdTask()
-
-	m.exitChan = make(chan struct{})
-}
-
-// Start the server
-func (m *ExchFrame) Start() {
-	m.cmdChan <- "listen"
-	m.cmdChan <- "connect"
-	m.Wait()
-}
-
-// Stop the server
-func (m *ExchFrame) Stop() {
-
-	m.Log.Info("stop the server!\n")
-	m.Log.Info("stop bank, cleanup!\n")
-	m.Bank.StopBank(m)
-	m.Log.Stop()
-
-	m.exitChan <- struct{}{}
-
-}
-
-// Wait wait the server to stop
-func (m *ExchFrame) Wait() {
-	<-m.exitChan
-
-}
-
 // loadConfig load the configuration
 func (m *ExchFrame) loadConfig(path string) (*Config, error) {
 	c := &Config{}
@@ -528,6 +435,23 @@ func (m *ExchFrame) loadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("convert %s to interger failed", str)
 	}
 	c.ExchPort = int64(i)
+
+	str, ok = f.Get("COMMON", "DES_FLAG")
+	if !ok {
+		return nil, fmt.Errorf("missing configure, sec=COMMON, key=DES_FLAG")
+	}
+	b, err := strconv.ParseBool(str)
+	if err != nil {
+		return nil, fmt.Errorf("convert %s to bool failed", str)
+	}
+	m.DesFlag = b
+	if m.DesFlag {
+		m.DesKey, ok = f.Get("COMMON", "DES_KEY")
+		if !ok {
+			return nil, fmt.Errorf("missing configure, sec=COMMON, key=DES_KEY")
+		}
+	}
+
 	/*
 		c.ControlAddr, ok = f.Get("COMMON", "CONTROL_IP")
 		if !ok {
@@ -566,6 +490,101 @@ func (m *ExchFrame) loadConfig(path string) (*Config, error) {
 
 	return c, nil
 }
+func (m *ExchFrame) MakeReq(command int64, msg pb.Message) error {
+	if command%2 == 0 {
+		command = command + 1
+	}
+	return m.WriteMsg(command, msg)
+}
+func (m *ExchFrame) MakeRsp(command int64, msg pb.Message) error {
+	if command%2 != 0 {
+		command = command + 1
+	}
+	return m.WriteMsg(command, msg)
+}
+
+func (m *ExchFrame) WriteMsg(command int64, msg pb.Message) error {
+
+	reqMsg := &exchMsg{}
+	reqMsg.command = command
+	reqMsg.pbmsg = msg
+	var err error
+	reqMsg.message, err = proto.SerializeMessage(command, msg, false)
+	if err != nil {
+		m.Log.Error("serialize message failed, err=%s\n", err.Error())
+		return err
+	}
+	if m.DesFlag && ((command & proto.IOMSCMDPREFIX) == proto.IOMSCMDPREFIX) {
+		reqMsg.message, err = util.PacketEncrypt(m.DesKey, reqMsg.message)
+		m.Log.Error("encrypt message failed, err=%s\n", err.Error())
+		return err
+	}
+	m.exch.sendChan <- reqMsg
+
+	return nil
+}
+
+// InitServer init the io money server
+func (m *ExchFrame) InitServer() {
+	m.parseArgs()
+
+	err := error(nil)
+
+	// read configure
+	m.Config, err = m.loadConfig(m.fileConf)
+	if err != nil {
+		fmt.Printf("LoadConfig failed, file = %s, err=%s\n", m.FileConf, err.Error())
+		os.Exit(-1)
+	}
+
+	// init logging
+	err = m.initLog()
+	if err != nil {
+		fmt.Printf("init log failed. err=%s\n", err.Error())
+		os.Exit(-1)
+	}
+
+	// load bank configure
+	err = m.initBank()
+	if err != nil {
+		m.Log.Error("init bank failed. err=%s\n", err.Error())
+		m.Stop()
+		os.Exit(-1)
+	}
+
+	go m.sigTask()
+
+	m.cmdChan = make(chan string, 1024)
+	m.Log.Info("start task go routine\n")
+	go m.cmdTask()
+
+	m.exitChan = make(chan struct{})
+}
+
+// Start the server
+func (m *ExchFrame) Start() {
+	m.cmdChan <- "listen"
+	m.cmdChan <- "connect"
+	m.Wait()
+}
+
+// Stop the server
+func (m *ExchFrame) Stop() {
+
+	m.Log.Info("stop the server!\n")
+	m.Log.Info("stop bank, cleanup!\n")
+	m.Bank.StopBank(m)
+	m.Log.Stop()
+
+	m.exitChan <- struct{}{}
+
+}
+
+// Wait wait the server to stop
+func (m *ExchFrame) Wait() {
+	<-m.exitChan
+
+}
 
 func (m *ExchFrame) HandleDef(command int64, msg pb.Message) error {
 	switch command {
@@ -574,7 +593,7 @@ func (m *ExchFrame) HandleDef(command int64, msg pb.Message) error {
 			req := msg.(*proto.HeartBeatReq)
 			rspMsg, err := proto.Message(proto.CMD_HEARTBEAT_RSP)
 			if err != nil {
-				m.Log.Critical("create message failed, ERR=%s\n", err.Error())
+				m.Log.Error("create message failed, err=%s\n", err.Error())
 				return err
 			}
 
@@ -592,7 +611,7 @@ func (m *ExchFrame) HandleDef(command int64, msg pb.Message) error {
 			req := msg.(*proto.E2BSignInOutReq)
 			rspMsg, err := proto.Message(proto.CMD_E2B_SIGNINOUT_RSP)
 			if err != nil {
-				m.Log.Critical("create message failed, ERR=%s\n", err.Error())
+				m.Log.Error("create message failed, err=%s\n", err.Error())
 				return err
 			}
 

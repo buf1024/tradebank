@@ -9,6 +9,8 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+const IOMSCMDPREFIX = 0x11000000
+
 const (
 	// 注意，所有请求报文都时奇数，所有应答报文都是偶数
 	//////////////////////////////////////////////////////////////////////
