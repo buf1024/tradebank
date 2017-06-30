@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"time"
+	"tradebank/util"
 
 	"sync"
 
@@ -24,8 +24,6 @@ type InoutLog struct {
 	checkdate   string
 	payway      int
 }
-
-const time19701900 = 2208988800000000
 
 func (y *YaodeMallDB) Init(file string) error {
 	sqlStr := `
@@ -70,7 +68,7 @@ func (y *YaodeMallDB) QueryCheckLog(operatetime int64) ([]InoutLog, error) {
 	y.lock.Lock()
 	defer y.lock.Unlock()
 	y.mall.Log.Debug("QueryLog, t=%d\n", operatetime)
-	rows, err := y.db.Query("select extflow, type, amount, status, operatetime, checkdate, payway from inout_log where operatetime <= ?",
+	rows, err := y.db.Query("select extflow, type, amount, status, operatetime, checkdate, payway from inout_log where status = 0 and operatetime <= ?",
 		operatetime)
 
 	if err != nil {
@@ -91,13 +89,10 @@ func (y *YaodeMallDB) QueryCheckLog(operatetime int64) ([]InoutLog, error) {
 	//y.mall.Log.Debug("result: %v\n", result)
 	return result, err
 }
-
 func (y *YaodeMallDB) InsertLog(lg InoutLog) error {
 	y.lock.Lock()
 	defer y.lock.Unlock()
-	t := time.Now()
-	t = t.UTC()
-	now := t.UnixNano()/int64(1000) + time19701900
+	now := util.CurrentUTCMicroSec()
 	y.mall.Log.Debug("now->%d\n", now)
 
 	_, err := y.db.Exec("insert into inout_log(extflow, type, amount, status, operatetime, checkdate, payway) values(?, ?, ?, ?, ?, ?, ?)",

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"tradebank/iomsframe"
@@ -11,6 +13,8 @@ import (
 	"tradebank/util"
 
 	"sync"
+
+	"io/ioutil"
 
 	pb "github.com/golang/protobuf/proto"
 	ini "github.com/vaughan0/go-ini"
@@ -25,6 +29,20 @@ type YaodeMall struct {
 	BankName string
 	BankID   int64
 	DBPath   string
+
+	CheckPath string
+	FtpHost   string
+	FtpUser   string
+	FtpPass   string
+	FtpPath   string
+}
+
+type CheckContext struct {
+	pay        YaodePay
+	date       string
+	log        *InoutLog
+	file       *iomsframe.CheckFile
+	retryTimes int64
 }
 
 type PayUrlValues struct {
@@ -156,7 +174,40 @@ func (b *YaodeMall) ExchReq(command int64, msg pb.Message) error {
 				return err
 			}
 
-			//b.db.QueryCheckLog()
+			t, err := util.DateStrToUTCMicroSec(req.GetTradeDate())
+			if err != nil {
+				b.Log.Critical("convert date str to utc micro sec failed, ERR=%s\n", err.Error())
+				return err
+			}
+
+			logs, err := b.db.QueryCheckLog(t)
+			if err != nil {
+				b.Log.Critical("query database failed, ERR=%s\n", err.Error())
+				return err
+			}
+			chkFile := iomsframe.NewCheckFile(b.CheckPath, int(b.BankID),
+				int(req.GetBatchNo()), req.GetTradeDate(), len(logs))
+
+			if len(logs) == 0 {
+				b.Log.Info("inout logs is nil, rsp to exch\n")
+				b.CheckFileNotify(chkFile)
+			} else {
+				for _, log := range logs {
+					pay := b.GetPay(log.iotype, log.payway)
+					if pay == nil {
+						b.Log.Error("unknown payway, payway=%s\n", log.payway)
+						return fmt.Errorf("unknown payway, payway=%d", log.payway)
+					}
+					ctx := &CheckContext{
+						pay:        pay,
+						log:        &log,
+						file:       chkFile,
+						date:       req.GetTradeDate(),
+						retryTimes: 0,
+					}
+					b.CheckReq(b.TimeOutSess, ctx)
+				}
+			}
 		}
 	default:
 		{
@@ -173,7 +224,7 @@ func (b *YaodeMall) ExchRsp(command int64, msg pb.Message) error {
 		}
 	case proto.CMD_B2E_CHECK_FILE_NOTIFICATION_RSP:
 		{
-
+			// no need further precess
 		}
 	default:
 		{
@@ -193,6 +244,71 @@ func (b *YaodeMall) GetPay(inout int, payway int) YaodePay {
 		return v
 	}
 	return nil
+}
+func (b *YaodeMall) CheckFileNotify(f *iomsframe.CheckFile) {
+	if err := util.FtpPut(b.FtpHost, b.FtpUser, b.FtpPass, f.FileName, b.FtpPath, f.FullPath); err != nil {
+		b.Log.Error("ftp put failed. err=%s\n", err)
+		return
+	}
+
+	reqMsg, err := proto.Message(proto.CMD_B2E_CHECK_FILE_NOTIFICATION_REQ)
+	if err != nil {
+		b.Log.Critical("create message failed, ERR=%s\n", err.Error())
+		return
+	}
+
+	req := reqMsg.(*proto.B2ECheckFileNotificationReq)
+	req.BankSID = pb.String(util.SID())
+	req.BankID = pb.Int32(int32(b.BankID))
+	req.CheckFileName = pb.String(f.FileName)
+	req.CheckFileCount = pb.Int32(int32(f.Total))
+
+	signData, err := ioutil.ReadFile(f.FullPath)
+	if err != nil {
+		b.Log.Critical("read file failed, err=%s\n", err)
+		return
+	}
+	h := md5.New()
+	md5sum := hex.EncodeToString(h.Sum(signData))
+	req.CheckFileNameMD5 = pb.String(md5sum)
+
+	b.MakeReq(proto.CMD_B2E_CHECK_FILE_NOTIFICATION_REQ, req)
+}
+func (b *YaodeMall) CheckReq(to int64, data interface{}) {
+	go func() {
+		ctx := data.(*CheckContext)
+		st, err := ctx.pay.CheckReq(ctx.log.extflow)
+		if err != nil {
+			if ctx.retryTimes < QUERYRESULT_RETRY_TIMES {
+				ctx.retryTimes = ctx.retryTimes + 1
+				b.Log.Error("query state failed, retry later")
+				util.CallMeLater(to, b.CheckReq, ctx)
+			} else {
+				b.Log.Error("query state failed, left for next check")
+				ctx.file.Append(nil)
+			}
+		} else {
+			if st == util.E_HALF_SUCCESS {
+				b.Log.Info("query state processing, left for next check")
+				ctx.file.Append(nil)
+			} else {
+				log := ctx.log
+				if st == util.E_SUCCESS {
+					log.status = 1
+				} else {
+					log.status = 2
+				}
+				if err := b.db.UpdateLog(log.extflow, log.status, ctx.date); err != nil {
+					b.Log.Error("update log failed. extflow = %s\n", log.extflow)
+				}
+			}
+		}
+
+		if ctx.file.CheckDone() {
+			b.CheckFileNotify(ctx.file)
+		}
+
+	}()
 }
 
 // YaodeMallServer

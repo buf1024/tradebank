@@ -128,8 +128,10 @@ const (
 	CMD_E2B_CHECK_START_RSP                  = 0x11010018 // 银行服务向银行对账开始应答
 	CMD_E2B_CLEAR_REQ                        = 0x11010019 // 银行服务向银行清算开始请求
 	CMD_E2B_CLEAR_RSP                        = 0x11010020 // 银行服务向银行清算开始应答
-	CMD_E2B_PAY_FORWARD_REQ                  = 0x1101001B // 支付推进请求
-	CMD_E2B_PAY_FORWARD_RSP                  = 0x1101001C // 支付推进应答
+	CMD_E2B_QUERY_BIND_BANK_REQ              = 0x11010021 // 出入金向甬易支付获取捆绑银行卡列表请求
+	CMD_E2B_QUERY_BIND_BANK_RSP              = 0x11010022 // 出入金向甬易支付获取捆绑银行卡列表应答
+	CMD_E2B_VERIFY_CODE_REQ                  = 0x11010023 // 支付验证码请求
+	CMD_E2B_VERIFY_CODE_RSP                  = 0x11010024 // 支付验证码应答
 
 	//////////////////////////////////////////////////////////////////////
 	// 出入金服务与交易系统交互
@@ -490,12 +492,22 @@ func init() {
 		message[CMD_E2B_QUERY_SIGN_STATUS_RSP] = & //0x11010014            // 银行服务向银行客户在银行签约状应答
 		message[CMD_E2B_OUT_MONEY_APPLICATION_RESULT_REQ] = & //0x11010015 // 出金审批申请结果请求 // 建行银行特殊流程
 		message[CMD_E2B_OUT_MONEY_APPLICATION_RESULT_RSP] = & //0x11010016 // 出金审批申请结果应答 // 建行银行特殊流程
-		message[CMD_E2B_CHECK_START_REQ] = & //0x11010017                  // 银行服务向银行对账开始请求
-		message[CMD_E2B_CHECK_START_RSP] = & //0x11010018                  // 银行服务向银行对账开始应答
+	*/
+
+	message[CMD_E2B_CHECK_START_REQ] = &E2BCheckStartReq{} //0x11010017                  // 银行服务向银行对账开始请求
+	message[CMD_E2B_CHECK_START_RSP] = &E2BCheckStartRsp{} //0x11010018                  // 银行服务向银行对账开始应答
+
+	/*
 		message[CMD_E2B_CLEAR_REQ] = & //0x11010019                        // 银行服务向银行清算开始请求
 		message[CMD_E2B_CLEAR_RSP] = & //0x11010020                        // 银行服务向银行清算开始应答
 		message[CMD_E2B_PAY_FORWARD_REQ] = & //0x1101001B                  // 支付推进请求
 		message[CMD_E2B_PAY_FORWARD_RSP] = & //0x1101001C                  // 支付推进应答
+
+	*/
+	message[CMD_E2B_VERIFY_CODE_REQ] = &E2BVerifyCodeReq{} // 支付验证码请求
+	message[CMD_E2B_VERIFY_CODE_RSP] = &E2BVerifyCodeRsp{} // 支付验证码应答
+
+	/*
 
 		//////////////////////////////////////////////////////////////////////
 		// 出入金服务与交易系统交互
@@ -544,9 +556,10 @@ func init() {
 		message[CMD_B2E_SIGN_INFO_RSP] = & //0x11020022         // 银行向银行服务签约信息维护应答
 		message[CMD_B2E_SUBACCOUNT_ATTACH_REQ] = & //0x11020023 // 银行向银行服务子帐户签约请求
 		message[CMD_B2E_SUBACCOUNT_ATTACH_RSP] = & //0x11020024 // 银行向银行服务子帐户签约应答
-		message[CMD_B2E_INOUTNOTIFY_REQ] = & //0x11020025       // 银行端出入金推送  -- 网易宝请求
-		message[CMD_B2E_INOUTNOTIFY_RSP] = & //0x11020026       // 银行端出入金推送  -- 网易宝应答
 	*/
+	message[CMD_B2E_INOUTNOTIFY_REQ] = &B2EInOutNotifyReq{} //0x11020025       // 银行端出入金推送  -- 网易宝请求
+	message[CMD_B2E_INOUTNOTIFY_RSP] = &B2EInOutNotifyRsp{} //0x11020026       // 银行端出入金推送  -- 网易宝应答
+
 	//////////////////////////////////////////////////////////////////////
 	// 与统一接入服务平台服务注册
 	//////////////////////////////////////////////////////////////////////
