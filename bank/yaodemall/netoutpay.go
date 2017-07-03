@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
+	"strconv"
 	"strings"
 	"tradebank/ioms"
 	"tradebank/proto"
@@ -74,15 +75,24 @@ func (p *NetOutPay) Encrypt(req *PayReq) (string, error) {
 	if err != nil {
 		return "", nil
 	}
+	js = []byte(`{"accName":"%B2%E2%CA%D4","accNo":"621226111111111111111","orderId":"tx20170703051473","transDate":"20170703092105","transAmount":"1"}`)
 	encJS, err := myrsa.PrivateEncrypt(p.privt, js)
 	if err != nil {
 		return "", nil
 	}
-	return string(encJS), nil
+	encStr := base64.StdEncoding.EncodeToString(encJS)
+	fmt.Printf("enc=%s\n", encStr)
+	return encStr, nil
 
 }
 func (p *NetOutPay) Decrypt(data []byte) (string, error) {
-	decData, err := myrsa.PublicDecrypt(p.pub, data)
+
+	decBase64 := make([]byte, len(data))
+	n, err := base64.RawStdEncoding.Decode(decBase64, data)
+	if err != nil {
+		return "", err
+	}
+	decData, err := myrsa.PublicDecrypt(p.pub, decBase64[:n])
 	if err != nil {
 		return "", err
 	}
@@ -377,6 +387,12 @@ func (p *NetOutPay) CheckResult(to int64, data interface{}) {
 				req.ExchSID = pb.String(ctx.extflow)
 				req.Status = pb.Int32(ret)
 				req.RetMsg = pb.String(util.GetErrMsg(int64(ret)))
+				amt, err := strconv.ParseFloat(ctx.amount, 64)
+				if err != nil {
+					p.mall.Log.Info("parse float error: %s\n", err)
+					return
+				}
+				req.Amount = pb.Float64(amt)
 				p.mall.Log.Info("query out money result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
 
 				p.mall.MakeRsp(proto.CMD_B2E_INOUTNOTIFY_REQ, req)

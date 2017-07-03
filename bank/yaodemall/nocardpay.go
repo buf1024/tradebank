@@ -15,6 +15,8 @@ import (
 
 	"tradebank/ioms"
 
+	"strconv"
+
 	pb "github.com/golang/protobuf/proto"
 	ini "github.com/vaughan0/go-ini"
 )
@@ -188,7 +190,41 @@ func (p *NoCardPay) OutMoneyReq(req *proto.E2BOutMoneyReq) error {
 	return fmt.Errorf("not support outmoney")
 }
 func (p *NoCardPay) VerifyReq(req *proto.E2BVerifyCodeReq) error {
-	return nil
+	bankReq := &VerifyReq{}
+	bankReq.mchKey = p.mall.MchKey
+	bankReq.merId = p.mall.MchNo
+	bankReq.yzm = req.GetVerifyCode()
+	bankReq.ksPayOrderId = req.GetOrderID()
+
+	bankMsg, err := p.VerifyCodeReq(bankReq)
+	if err != nil {
+		return err
+	}
+
+	p.mall.Log.Info("POST REQ:\nURL=%s\n, DATA=%s\n", p.NocardReqHost, bankMsg)
+	bankRsp, err := util.PostData(p.NocardReqHost, []byte(bankMsg))
+	if err != nil {
+		return err
+	}
+	p.mall.Log.Info("POST RSP:%s\n", string(bankRsp))
+	rspData, err := p.ParseRsp(bankRsp)
+	if err != nil {
+		return err
+	}
+	rspMsg, err := proto.Message(proto.CMD_E2B_VERIFY_CODE_RSP)
+	if err != nil {
+		return err
+	}
+	rsp := rspMsg.(*proto.E2BVerifyCodeRsp)
+	rsp.ExchSID = pb.String(req.GetExchSID())
+	rsp.BankID = pb.Int32(req.GetBankID())
+	rsp.RetCode = pb.Int32(util.E_BANK_ERR)
+	packSt, buzSt := p.GetExchCode(rspData)
+	if packSt == util.E_SUCCESS {
+		rsp.RetCode = pb.Int32(buzSt)
+	}
+
+	return p.mall.MakeRsp(proto.CMD_E2B_VERIFY_CODE_RSP, rsp)
 }
 
 func (p *NoCardPay) CheckReq(orderId string) (int32, error) {
@@ -319,7 +355,11 @@ func (p *NoCardPay) GetExchCode(rsp *PayRsp) (packStatus int32, buzStatus int32)
 		if rsp.chanelRefcode == "89" {
 			buzStatus = util.E_HALF_SUCCESS
 		} else {
-			buzStatus = util.E_SUCCESS
+			if rsp.refCode == "01" {
+				buzStatus = util.E_HALF_SUCCESS
+			} else {
+				buzStatus = util.E_SUCCESS
+			}
 		}
 	} else if rsp.refCode == "03" {
 		buzStatus = util.E_HALF_SUCCESS
@@ -350,7 +390,6 @@ func (p *NoCardPay) CheckResult(to int64, data interface{}) {
 					return
 				}
 				req := reqMsg.(*proto.B2EInOutNotifyReq)
-
 				req.TransType = pb.Int32(ioms.BANK_OUTMONEY)
 				req.BankAcct = pb.String(ctx.bankacct)
 				req.BankId = pb.Int32(int32(p.mall.BankID))
@@ -359,6 +398,12 @@ func (p *NoCardPay) CheckResult(to int64, data interface{}) {
 				req.ExchSID = pb.String(ctx.extflow)
 				req.Status = pb.Int32(ret)
 				req.RetMsg = pb.String(util.GetErrMsg(int64(ret)))
+				amt, err := strconv.ParseFloat(ctx.amount, 64)
+				if err != nil {
+					p.mall.Log.Info("parse float error: %s\n", err)
+					return
+				}
+				req.Amount = pb.Float64(amt)
 				p.mall.Log.Info("query in money result, notfiy status req : %s\n", proto.Debug(proto.CMD_B2E_INOUTNOTIFY_REQ, req))
 
 				p.mall.MakeRsp(proto.CMD_B2E_INOUTNOTIFY_REQ, req)

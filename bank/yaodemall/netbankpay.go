@@ -87,11 +87,8 @@ func (p *NetBankPay) TestHttpListen() bool {
 func (p *NetBankPay) HttpListen() {
 	p.mall.Log.Info("http start listen %d \n", p.listenPort)
 	http.HandleFunc(p.notifyUrl, p.NotifyHandler)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", p.listenPort), nil)
-	if err != nil {
-		p.mall.Log.Error("http listen %s failed\n", p.listenPort)
+	http.ListenAndServe(fmt.Sprintf(":%d", p.listenPort), nil)
 
-	}
 }
 func (p *NetBankPay) Init(f *ini.File) error {
 	err := p.loadConf(f)

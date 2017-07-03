@@ -70,6 +70,17 @@ func (c *Caesar) DecryptBytes(b []byte) []byte {
 var des3DefKey []byte = []byte("ZGFyayBtYXR0ZXIgZXNjYXBl")
 var des3DefIov []byte = []byte("bmV2ZXI=")
 
+func PKCS5Padding(ciphertext []byte, blockSize int) []byte {
+	padding := blockSize - len(ciphertext)%blockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(ciphertext, padtext...)
+}
+
+func PKCS5Unpadding(origData []byte) []byte {
+	length := len(origData)
+	unpadding := int(origData[length-1])
+	return origData[:(length - unpadding)]
+}
 func getDBKey() string {
 	s := math.Sqrt(17.0)
 	key := fmt.Sprintf("%.22f", s)
@@ -119,12 +130,17 @@ func noStdUnpadding(origData []byte) []byte {
 	return origData[:(length - unpadding)]
 }
 
-func PacketEncrypt(key string, buf []byte) ([]byte, error) {
+func PacketEncrypt(key string, buf []byte) (dst []byte, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			dst = nil
+			err = fmt.Errorf("%s", e)
+		}
+	}()
 	keyBytes, iovBytes, err := getPacketKey(key)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("k=%s, i=%s\n", keyBytes, iovBytes)
 	block, err := des.NewTripleDESCipher(keyBytes)
 	if err != nil {
 		return nil, err
@@ -132,13 +148,19 @@ func PacketEncrypt(key string, buf []byte) ([]byte, error) {
 	bufBase64 := base64.StdEncoding.EncodeToString(buf)
 	padBytes := noStdPadding([]byte(bufBase64), block.BlockSize())
 	mode := cipher.NewCBCEncrypter(block, iovBytes)
-	dst := make([]byte, len(padBytes))
+	dst = make([]byte, len(padBytes))
 	mode.CryptBlocks(dst, padBytes)
 
 	return dst, nil
 }
 
-func PacketDecrypt(key string, buf []byte) ([]byte, error) {
+func PacketDecrypt(key string, buf []byte) (decBytes []byte, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			decBytes = nil
+			err = fmt.Errorf("%s", e)
+		}
+	}()
 	keyBytes, iovBytes, err := getPacketKey(key)
 	if err != nil {
 		return nil, err
@@ -151,7 +173,7 @@ func PacketDecrypt(key string, buf []byte) ([]byte, error) {
 	dst := make([]byte, len(buf))
 	mode.CryptBlocks(dst, buf)
 	unpadBytes := noStdUnpadding(dst)
-	decBytes, err := base64.StdEncoding.DecodeString(string(unpadBytes))
+	decBytes, err = base64.StdEncoding.DecodeString(string(unpadBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +206,7 @@ func DBDecrypt(buf string) (string, error) {
 	mode := cipher.NewCBCDecrypter(block, b.Bytes())
 	dst := make([]byte, len(orig))
 	mode.CryptBlocks(dst, orig)
+	dst = PKCS5Unpadding(dst)
 	return string(dst), nil
 }
 
@@ -198,7 +221,8 @@ func DBEncrypt(buf string) (string, error) {
 		b.WriteByte(byte(0))
 	}
 	mode := cipher.NewCBCEncrypter(block, b.Bytes())
-	dst := make([]byte, len(buf))
-	mode.CryptBlocks(dst, []byte(buf))
+	bufPad := PKCS5Padding([]byte(buf), mode.BlockSize())
+	dst := make([]byte, len(bufPad))
+	mode.CryptBlocks(dst, bufPad)
 	return base64.StdEncoding.EncodeToString(dst), nil
 }

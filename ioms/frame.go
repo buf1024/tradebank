@@ -444,9 +444,9 @@ func (m *ExchFrame) loadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("convert %s to bool failed", str)
 	}
-	m.DesFlag = b
-	if m.DesFlag {
-		m.DesKey, ok = f.Get("COMMON", "DES_KEY")
+	c.DesFlag = b
+	if c.DesFlag {
+		c.DesKey, ok = f.Get("COMMON", "DES_KEY")
 		if !ok {
 			return nil, fmt.Errorf("missing configure, sec=COMMON, key=DES_KEY")
 		}
@@ -565,7 +565,7 @@ func (m *ExchFrame) InitServer() {
 func (m *ExchFrame) Start() {
 	m.cmdChan <- "listen"
 	m.cmdChan <- "connect"
-	m.Wait()
+	m.wait()
 }
 
 // Stop the server
@@ -575,13 +575,13 @@ func (m *ExchFrame) Stop() {
 	m.Log.Info("stop bank, cleanup!\n")
 	m.Bank.StopBank(m)
 	m.Log.Stop()
-
-	m.exitChan <- struct{}{}
-
+	if m.exitChan != nil {
+		m.exitChan <- struct{}{}
+	}
 }
 
-// Wait wait the server to stop
-func (m *ExchFrame) Wait() {
+// wait wait the server to stop
+func (m *ExchFrame) wait() {
 	<-m.exitChan
 
 }
